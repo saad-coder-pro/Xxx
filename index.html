@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediaPipe Hand Cursor · Pinch Click</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #0b0e14;
+      color: #e0e6f0;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Virtual cursor ─────────────────────────────────────── */
+    #cursor {
+      position: fixed;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0, 230, 255, 0.85);
+      border: 2px solid #fff;
+      box-shadow: 0 0 16px rgba(0, 230, 255, 0.9), 0 0 40px rgba(0, 230, 255, 0.35);
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: width 0.12s, height 0.12s, background 0.12s, box-shadow 0.12s;
+      will-change: left, top;
+    }
+
+    /* Pinch / click state */
+    #cursor.pinching {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 80, 120, 0.9);
+      box-shadow: 0 0 24px rgba(255, 80, 120, 1), 0 0 60px rgba(255, 80, 120, 0.5);
+    }
+
+    /* ── UI overlay ─────────────────────────────────────────── */
+    .panel {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 100;
+      background: rgba(12, 16, 24, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 260px;
+      pointer-events: none;
+    }
+
+    .panel h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      color: #7df9ff;
+    }
+
+    .panel p {
+      font-size: 12px;
+      line-height: 1.45;
+      color: #9aa6bb;
+    }
+
+    .panel .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: rgba(0, 230, 255, 0.15);
+      color: #00e6ff;
+      width: fit-content;
+    }
+
+    .panel .badge.error {
+      background: rgba(255, 80, 120, 0.18);
+      color: #ff5078;
+    }
+
+    /* ── Camera preview ─────────────────────────────────────── */
+    #previewWrap {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 100;
+      width: 200px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: #000;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+    }
+
+    #previewWrap video,
+    #previewWrap canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    #previewWrap video {
+      transform: scaleX(-1); /* mirror for natural feel */
+    }
+
+    #previewWrap canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform: scaleX(-1); /* mirror landmarks too */
+    }
+
+    .preview-label {
+      position: absolute;
+      bottom: 6px;
+      left: 8px;
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.65);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    /* ── Interactive demo targets ───────────────────────────── */
+    .targets {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      gap: 28px;
+      z-index: 50;
+      pointer-events: auto;
+    }
+
+    .target {
+      width: 110px;
+      height: 110px;
+      border-radius: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e6f0;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+      user-select: none;
+    }
+
+    .target:hover {
+      background: rgba(255, 255, 255, 0.11);
+      border-color: rgba(0, 230, 255, 0.45);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 30px rgba(0, 230, 255, 0.12);
+    }
+
+    .target:active,
+    .target.flash {
+      background: rgba(0, 230, 255, 0.2);
+      border-color: #00e6ff;
+      transform: scale(0.95);
+      box-shadow: 0 0 30px rgba(0, 230, 255, 0.35);
+    }
+
+    .target .icon { font-size: 30px; line-height: 1; }
+
+    .target .label { font-size: 11px; color: #9aa6bb; font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <!-- Virtual cursor -->
+  <div id="cursor"></div>
+
+  <!-- Status panel -->
+  <div class="panel">
+    <h1>🖐️ Hand Cursor</h1>
+    <p>Point with your <strong>index finger</strong> to move the cursor.<br>
+       <strong>Pinch</strong> thumb + index to click.</p>
+    <span class="badge" id="statusBadge">Loading MediaPipe…</span>
+  </div>
+
+  <!-- Camera preview -->
+  <div id="previewWrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <span class="preview-label">Camera</span>
+  </div>
+
+  <!-- Demo clickable targets -->
+  <div class="targets">
+    <div class="target" data-name="A">
+      <span class="icon">🎯</span>
+      <span class="label">Target A</span>
+    </div>
+    <div class="target" data-name="B">
+      <span class="icon">✨</span>
+      <span class="label">Target B</span>
+    </div>
+    <div class="target" data-name="C">
+      <span class="icon">🔔</span>
+      <span class="label">Target C</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MediaPipe Hands via CDN
+       ══════════════════════════════════════════════════════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ── DOM refs ──────────────────────────────────────────────
+    const video        = document.getElementById("video");
+    const overlay      = document.getElementById("overlay");
+    const overlayCtx   = overlay.getContext("2d");
+    const cursorEl     = document.getElementById("cursor");
+    const statusBadge  = document.getElementById("statusBadge");
+
+    // ── State ─────────────────────────────────────────────────
+    let lastPinchState = false;   // was pinching last frame?
+    let cursorX = window.innerWidth  / 2;
+    let cursorY = window.innerHeight / 2;
+    let smoothX = cursorX;
+    let smoothY = cursorY;
+    let handDetected = false;
+
+    // ── Tunables ──────────────────────────────────────────────
+    const PINCH_THRESHOLD   = 0.055;  // normalized distance between thumb & index
+    const RELEASE_THRESHOLD = 0.075;  // hysteresis: must open wider to release
+    const SMOOTHING         = 0.35;   // 0 = raw, 1 = frozen. 0.3–0.5 feels good.
+    const MARGIN_X          = 0.12;   // ignore outer 12 % of camera X (edges jitter)
+    const MARGIN_Y          = 0.12;   // same for Y
+
+    // ── Helpers ───────────────────────────────────────────────
+    const dist2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+    /**
+     * Map a normalized value (0–1) from a reduced source range
+     * [margin, 1-margin] to the full 0–1 range, clamped.
+     */
+    function remap(v, margin) {
+      const lo = margin;
+      const hi = 1 - margin;
+      const t = (v - lo) / (hi - lo);
+      return Math.max(0, Math.min(1, t));
+    }
+
+    /**
+     * Fire a synthetic click at screen coords (x, y).
+     * Uses elementFromPoint so it respects z-order.
+     */
+    function fireClickAt(x, y) {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return;
+
+      // Visual flash on .target elements
+      const target = el.closest(".target");
+      if (target) {
+        target.classList.add("flash");
+        setTimeout(() => target.classList.remove("flash"), 180);
+      }
+
+      // Dispatch a genuine click so any handler / link works
+      const ev = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: y,
+        view: window,
+      });
+      el.dispatchEvent(ev);
+    }
+
+    // ── MediaPipe Hands setup ─────────────────────────────────
+    const hands = new Hands({
+      locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,              // one hand is enough for a cursor
+      modelComplexity: 1,          // 1 = full model, better accuracy
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6,
+      selfieMode: true,            // mirror — matches our mirrored video
+    });
+
+    hands.onResults(onResults);
+
+    // ── Frame callback ────────────────────────────────────────
+    function onResults(results) {
+      // ── Resize overlay canvas to match video ──────────────
+      if (
+        overlay.width !== video.videoWidth ||
+        overlay.height !== video.videoHeight
+      ) {
+        overlay.width  = video.videoWidth  || 640;
+        overlay.height = video.videoHeight || 480;
+      }
+
+      overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+      // ── No hand? ──────────────────────────────────────────
+      if (
+        !results.multiHandLandmarks ||
+        results.multiHandLandmarks.length === 0
+      ) {
+        handDetected = false;
+        cursorEl.style.opacity = "0.35";
+        statusBadge.textContent = "No hand detected";
+        statusBadge.className = "badge";
+        if (lastPinchState) {
+          lastPinchState = false;
+          cursorEl.classList.remove("pinching");
+        }
+        return;
+      }
+
+      handDetected = true;
+      cursorEl.style.opacity = "1";
+      statusBadge.textContent = "Tracking";
+      statusBadge.className = "badge";
+
+      const lm = results.multiHandLandmarks[0];
+
+      // ── Landmarks we care about ───────────────────────────
+      const indexTip = lm[8];   // index finger tip
+      const thumbTip = lm[4];   // thumb tip
+
+      // ── Pinch detection with hysteresis ───────────────────
+      const pinchDist = dist2D(thumbTip, indexTip);
+      let pinching = lastPinchState;
+
+      if (!lastPinchState && pinchDist < PINCH_THRESHOLD) {
+        pinching = true;
+      } else if (lastPinchState && pinchDist > RELEASE_THRESHOLD) {
+        pinching = false;
+      }
+
+      // ── Map index tip → screen coordinates ────────────────
+      // MediaPipe gives normalized 0–1 coords.
+      // selfieMode:true already mirrors X, so x=0 is left of screen.
+      const rawX = remap(indexTip.x, MARGIN_X) * window.innerWidth;
+      const rawY = remap(indexTip.y, MARGIN_Y) * window.innerHeight;
+
+      // Exponential smoothing
+      smoothX += (rawX - smoothX) * SMOOTHING;
+      smoothY += (rawY - smoothY) * SMOOTHING;
+
+      cursorX = smoothX;
+      cursorY = smoothY;
+
+      // Move the DOM cursor
+      cursorEl.style.left = cursorX + "px";
+      cursorEl.style.top  = cursorY + "px";
+
+      // ── Pinch state visual + click ────────────────────────
+      if (pinching && !lastPinchState) {
+        // Transition: open → pinch  =  CLICK
+        cursorEl.classList.add("pinching");
+        fireClickAt(cursorX, cursorY);
+      } else if (!pinching && lastPinchState) {
+        // Transition: pinch → open
+        cursorEl.classList.remove("pinching");
+      }
+      lastPinchState = pinching;
+
+      // ── Draw landmarks on the preview overlay ─────────────
+      drawLandmarks(overlayCtx, lm, indexTip, thumbTip, pinching);
+    }
+
+    // ── Draw a minimal landmark overlay ───────────────────────
+    function drawLandmarks(ctx, lm, indexTip, thumbTip, pinching) {
+      const w = overlay.width;
+      const h = overlay.height;
+
+      // Connections we want to show (a simplified skeleton)
+      const connections = [
+        [0,1],[1,2],[2,3],[3,4],       // thumb
+        [0,5],[5,6],[6,7],[7,8],       // index
+        [0,9],[9,10],[10,11],[11,12],  // middle
+        [0,13],[13,14],[14,15],[15,16],// ring
+        [0,17],[17,18],[18,19],[19,20],// pinky
+        [5,9],[9,13],[13,17],          // palm
+      ];
+
+      // Draw connections
+      ctx.strokeStyle = "rgba(0, 230, 255, 0.55)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (const [a, b] of connections) {
+        ctx.moveTo(lm[a].x * w, lm[a].y * h);
+        ctx.lineTo(lm[b].x * w, lm[b].y * h);
+      }
+      ctx.stroke();
+
+      // Draw all landmarks as small dots
+      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+      for (const p of lm) {
+        ctx.beginPath();
+        ctx.arc(p.x * w, p.y * h, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Highlight index tip
+      ctx.beginPath();
+      ctx.arc(indexTip.x * w, indexTip.y * h, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#00e6ff";
+      ctx.fill();
+
+      // Highlight thumb tip
+      ctx.beginPath();
+      ctx.arc(thumbTip.x * w, thumbTip.y * h, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#ff5078";
+      ctx.fill();
+
+      // Draw a line between thumb and index, colour depends on pinch
+      ctx.beginPath();
+      ctx.moveTo(thumbTip.x * w, thumbTip.y * h);
+      ctx.lineTo(indexTip.x * w, indexTip.y * h);
+      ctx.strokeStyle = pinching
+        ? "rgba(255, 80, 120, 0.9)"
+        : "rgba(255, 255, 255, 0.25)";
+      ctx.lineWidth = pinching ? 3 : 1.5;
+      ctx.setLineDash(pinching ? [] : [4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ── Start the camera ──────────────────────────────────────
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width:  { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: "user",
+          },
+          audio: false,
+        });
+
+        video.srcObject = stream;
+
+        // Wait for metadata so videoWidth/Height are real
+        await new Promise((resolve) => {
+          if (video.readyState >= 1) return resolve();
+          video.onloadedmetadata = resolve;
+        });
+
+        await video.play();
+
+        // Wire up the Camera utility (sends frames to hands.send)
+        const camera = new Camera(video, {
+          onFrame: async () => {
+            await hands.send({ image: video });
+          },
+          width: 640,
+          height: 480,
+        });
+
+        camera.start();
+        statusBadge.textContent = "Ready — point your finger";
+        statusBadge.className = "badge";
+      } catch (err) {
+        console.error("Camera error:", err);
+        statusBadge.textContent = "Camera denied — allow access & reload";
+        statusBadge.className = "badge error";
+      }
+    }
+
+    // ── Boot ──────────────────────────────────────────────────
+    startCamera();
+
+    // Keep cursor roughly centred if the window resizes
+    window.addEventListener("resize", () => {
+      smoothX = Math.min(smoothX, window.innerWidth  - 1);
+      smoothY = Math.min(smoothY, window.innerHeight - 1);
+    });
+
+    // Press Escape to hide / show the cursor (useful for debugging)
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        cursorEl.style.display =
+          cursorEl.style.display === "none" ? "" : "none";
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
