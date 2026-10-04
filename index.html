@@ -33,9 +33,9 @@
     opacity:0;pointer-events:none}
 
   /* ═════════ SVG cursor ═════════
-     Tip sits at SVG coordinate (0,0), which maps to pixel (4,2)
-     inside the 24×27 rendered box. The JS loop subtracts (4,2)
-     from cursor.x/y so the tip lands exactly on the click point. */
+     Tip is at SVG (0,0) → pixel (4,2) inside 24×27 box.
+     The render loop offsets transform by (-4,-2).
+     contain:strict + GPU layer = painted once, moved cheaply. */
   #cursor{
     position:fixed;left:0;top:0;
     width:24px;height:27px;
@@ -43,15 +43,23 @@
     z-index:2147483647;
     opacity:0;
     transition:opacity .1s;
-    will-change:transform;
+    contain:strict;
+    transform:translate3d(0,0,0);
+    backface-visibility:hidden;
+    -webkit-backface-visibility:hidden;
+    will-change:transform,opacity;
   }
   #cursor.visible{opacity:1}
-  #cursor svg{display:block;width:100%;height:100%;overflow:visible}
+  #cursor svg{
+    display:block;width:100%;height:100%;overflow:visible;
+    shape-rendering:geometricPrecision;
+    pointer-events:none;
+  }
   #cursor path{
-    /* the ONE visible colour — swapped between #ffffff and #000000 by JS */
     fill:#ffffff;
     stroke:none;
     shape-rendering:geometricPrecision;
+    pointer-events:none;
   }
 
   .cal-overlay{
@@ -242,7 +250,6 @@
   h2.section::after{content:'';flex:1;height:1px;
     background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
 
-  /* ── Colour-test zones ── */
   .colour-strip{
     display:grid;grid-template-columns:repeat(6,1fr);
     gap:0;border-radius:16px;overflow:hidden;
@@ -297,10 +304,8 @@
 <body>
 
 <!-- ═════════ SVG CURSOR ═════════
-     Tip is at path coordinate (0,0). viewBox starts at (-20,-10),
-     so the tip sits at pixel (4,2) inside the 24×27 rendered box.
-     The JS loop places the div at (cursorX-4, cursorY-2) so the tip
-     lands exactly on the click point. -->
+     Tip at path coord (0,0) → pixel (4,2) inside 24×27 box.
+     Loop offsets transform by (-4,-2) so tip lands on the click point. -->
 <div id="cursor" aria-hidden="true">
   <svg viewBox="-20 -10 120 135" xmlns="http://www.w3.org/2000/svg">
     <path id="cursorPath"
@@ -414,7 +419,7 @@
 <div class="toast" id="toast"></div>
 
 <main>
-  <h2 class="section">Cursor colour test — move over each tile</h2>
+  <h2 class="section">Cursor colour test — sweep across</h2>
   <div class="colour-strip">
     <div style="background:#000000;color:#fff">Black</div>
     <div style="background:#1a1a1a;color:#fff">Dark</div>
@@ -424,25 +429,26 @@
     <div style="background:#ffffff;color:#000">White</div>
   </div>
   <p style="font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:30px">
-    The cursor should flip between <b style="color:#fff">white</b> on the left half
-    and <b style="color:#000;background:#fff;padding:0 4px;border-radius:3px">black</b>
-    on the right half. Notice it only has 2 states — never grey.
+    Cursor flips between <b style="color:#fff">white</b> and
+    <b style="color:#000;background:#fff;padding:0 4px;border-radius:3px">black</b>
+    at the 50 % luminance line. Only 2 colours — never grey.
   </p>
 
   <h2 class="section">Selectable Text</h2>
   <div class="text-block">
-    <h3>How the colour flip works</h3>
+    <h3>Performance notes</h3>
     <p>
-      Every few frames the loop asks <code>document.elementFromPoint</code> what's
-      under the cursor, walks up the DOM until it finds an element with a non-transparent
-      background, and computes its <b>perceptual luminance</b> using the sRGB weights
-      <code>0.2126·R + 0.7152·G + 0.0722·B</code>. If luminance &gt; 0.5 the cursor turns
-      black, otherwise white.
+      The colour sampler now runs on its own <code>setInterval</code> at ~6 Hz, with a
+      <code>WeakMap</code> cache keyed by the element under the cursor. If the element
+      hasn't changed since the last sample, we skip everything — no
+      <code>getComputedStyle</code>, no forced reflow, no work. That's what restores
+      the frame rate: the RAF loop only does LERP + a single
+      <code>style.transform</code> write.
     </p>
     <p>
-      A 3-frame <b>hysteresis</b> prevents flicker when you cross the boundary between
-      a light and dark element. The cursor is a single SVG path with one fill value —
-      no strokes, no shadows, no gradients — so it uses exactly 2 colours overall.
+      The cursor SVG has <code>contain:strict</code> and its own compositor layer
+      (<code>translate3d</code> + <code>will-change</code>), so moving it never
+      re-rasterises the path or invalidates layout for the rest of the page.
     </p>
   </div>
 
@@ -605,10 +611,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   const calCancel     = document.getElementById("calCancel");
   const calProgress   = document.getElementById("calProgress");
 
-  /* ═════════ Cursor tip offset ═════════
-     viewBox="-20 -10 120 135", rendered 24×27.
-     Tip at SVG (0,0) → pixel (20/120*24, 10/135*27) = (4, 2).
-     So we place the div at (cursorX - 4, cursorY - 2). */
+  /* Cursor tip offset: SVG (0,0) → pixel (4,2) in 24×27 box */
   const TIP_OFF_X = 4;
   const TIP_OFF_Y = 2;
 
@@ -635,8 +638,8 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     momentumDecay:{g:"Momentum",  l:"Decay per frame",    min:0.85,max:0.99,step:0.005,d:0.94},
   };
 
-  const CFG_KEY = "dex_svg_cfg_v1";
-  const CAL_KEY = "dex_svg_cal_v1";
+  const CFG_KEY = "dex_svg_cfg_v2";
+  const CAL_KEY = "dex_svg_cal_v2";
 
   const T = {};
   Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].d; });
@@ -675,15 +678,25 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   }
   function handAngle(lm) { return Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x); }
 
-  /* ═════════ Cursor colour sampling ═════════ */
-  /* Walk up the DOM from the element under (x,y) until we find a
-     non-transparent backgroundColor. Return its perceptual luminance. */
+  /* ═════════ Cursor colour — off the RAF loop, cached ═════════ */
+  const WHITE = "#ffffff";
+  const BLACK = "#000000";
+
+  let currentCursorColor = WHITE;
+  let pendingColor = WHITE;
+  let pendingColorCount = 0;
+
   const _rgbRe = /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/;
-  function bgLuminanceAt(x, y) {
-    const el = document.elementFromPoint(x, y);
+  const lumCache = new WeakMap();
+
+  function elementLuminance(el) {
     if (!el) return 0;
+    const now = performance.now();
     let node = el;
-    while (node && node !== document.documentElement) {
+    while (node && node.nodeType === 1 && node !== document.documentElement) {
+      const cached = lumCache.get(node);
+      if (cached && now - cached.t < 2000) return cached.lum;
+
       const bg = getComputedStyle(node).backgroundColor;
       const m = bg.match(_rgbRe);
       if (m) {
@@ -692,38 +705,41 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
           const r = parseFloat(m[1]) / 255;
           const g = parseFloat(m[2]) / 255;
           const b = parseFloat(m[3]) / 255;
-          // sRGB luminance (Rec. 709 weights)
-          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          lumCache.set(el, { lum, t: now });
+          lumCache.set(node, { lum, t: now });
+          return lum;
         }
       }
       node = node.parentElement;
     }
-    return 0;   // default: assume dark → white cursor
+    lumCache.set(el, { lum: 0, t: now });
+    return 0;
   }
 
-  const WHITE = "#ffffff";
-  const BLACK = "#000000";
-  let currentCursorColor = WHITE;
-  let pendingColor = WHITE;
-  let pendingColorCount = 0;
+  let lastColorEl = null;
 
-  function updateCursorColor() {
-    const lum = bgLuminanceAt(cursor.x, cursor.y);
+  function sampleCursorColor() {
+    const el = document.elementFromPoint(cursor.x, cursor.y);
+    if (el === lastColorEl) return;
+    lastColorEl = el;
+
+    const lum = elementLuminance(el);
     const desired = lum > 0.5 ? BLACK : WHITE;
 
-    if (desired === currentCursorColor) {
-      pendingColorCount = 0;
-      return;
-    }
+    if (desired === currentCursorColor) { pendingColorCount = 0; return; }
     if (desired !== pendingColor) { pendingColor = desired; pendingColorCount = 1; return; }
     pendingColorCount++;
-    if (pendingColorCount >= 3) {
+    if (pendingColorCount >= 2) {
       currentCursorColor = desired;
       cursorPath.setAttribute("fill", currentCursorColor);
       colorState.textContent = currentCursorColor === WHITE ? "white" : "black";
       pendingColorCount = 0;
     }
   }
+
+  /* 6 Hz — plenty for background colour, cheap */
+  setInterval(sampleCursorColor, 160);
 
   /* ═════════ Affine calibration ═════════ */
   const CORNERS = [
@@ -782,7 +798,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   let lastRawHandTime = 0;
 
   const target = { x: innerWidth / 2, y: innerHeight / 2, vx: 0, vy: 0, lastT: performance.now() };
-  const cursor = { x: innerWidth / 2, y: innerHeight / 2, lastColorSample: 0 };
+  const cursor = { x: innerWidth / 2, y: innerHeight / 2 };
 
   const clickPinch = { active: false, confirm: 0, release: 0,
                        startTime: 0, cooldownUntil: 0, holdTimer: null };
@@ -1051,7 +1067,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     else onScrollEnd();
   }
 
-  /* ═════════ Main RAF loop ═════════ */
+  /* ═════════ Main RAF loop — LERP only ═════════ */
   let frames = 0, lastFpsT = performance.now();
   function loop() {
     const now = performance.now();
@@ -1068,16 +1084,10 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       cursor.x += dx * f; cursor.y += dy * f;
     }
 
-    /* Place the SVG so its tip lands exactly on (cursor.x, cursor.y) */
+    /* Single style write per frame — nothing else touches layout here */
     cursorEl.style.transform =
       `translate3d(${(cursor.x - TIP_OFF_X).toFixed(2)}px, ${(cursor.y - TIP_OFF_Y).toFixed(2)}px, 0)`;
     cursorEl.classList.toggle("visible", latestHands.length > 0 || cal.active);
-
-    /* Sample background colour every ~5 frames */
-    if (now - cursor.lastColorSample > 80) {
-      cursor.lastColorSample = now;
-      updateCursorColor();
-    }
 
     frames++;
     if (now - lastFpsT >= 1000) {
@@ -1344,7 +1354,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
 
   function getJSON() {
     return JSON.stringify({
-      app: "dex-hand-cursor", version: 10,
+      app: "dex-hand-cursor", version: 11,
       savedAt: new Date().toISOString(),
       config: { ...T },
       calibration: cal.raw.length === 4 ? { raw: cal.raw, scr: cal.scr } : null,
