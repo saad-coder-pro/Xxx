@@ -2,60 +2,117 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>DeX Hand Cursor · AB-Filter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>DeX Hand Cursor · Worker + LERP</title>
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer">
 <style>
-  :root{--cyan:#00e6ff;--pink:#ff5078;--gold:#ffc83c;--green:#22e07a;
-        --purple:#a855f7;--orange:#ff8a3d;--blue:#3b82f6;--red:#ef4444;
-        --bg:#0b0e14;--text:#e0e6f0;--muted:#8792a8}
+  :root{
+    --cyan:#00e6ff;--pink:#ff5078;--gold:#ffc83c;--green:#22e07a;
+    --purple:#a855f7;--orange:#ff8a3d;--blue:#3b82f6;--red:#ef4444;
+    --bg:#0b0e14;--text:#e0e6f0;--muted:#8792a8;
+  }
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{background:var(--bg)}
-  html{scroll-behavior:auto!important}
-  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-       color:var(--text);min-height:260vh;overflow-x:hidden;cursor:none}
-  body.calibrating,body.calibrating *{cursor:auto!important}
-  body.calibrating #cursor{display:none!important}
-  #video{position:fixed;left:-10000px;top:0;width:640px;height:480px;opacity:0;pointer-events:none}
 
-  /* cursor */
-  #cursor{position:fixed;left:50%;top:50%;width:16px;height:16px;border-radius:50%;
-    background:#fff;border:2px solid rgba(0,0,0,.85);pointer-events:none;
-    z-index:2147483647;transform:translate(-50%,-50%);opacity:0;
-    transition:opacity .1s;will-change:left,top}
+  html,body{
+    background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    min-height:260vh;overflow-x:hidden;
+    cursor:none;                             /* hand cursor is the only cursor */
+    -webkit-text-size-adjust:100%;
+    overscroll-behavior-y:none;
+  }
+  html{scroll-behavior:auto !important}
+
+  /* Kill the touch delay & tap highlight on every interactive element */
+  button,select,input,a,.cal-btn,.cal-target,.target,.card,.swatch,.switch,
+  .tuner-tabs button,.icon-btn,.cal-progress,.cal-panel{
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;
+  }
+  input,select,textarea{-webkit-user-select:auto;user-select:auto}
+
+  /* During calibration: let taps through, hide virtual cursor */
+  body.calibrating{cursor:auto}
+  body.calibrating #cursor{display:none !important}
+
+  /* Off-screen video (source for MediaPipe) */
+  #video{
+    position:fixed;left:-10000px;top:0;
+    width:640px;height:480px;opacity:0;pointer-events:none;
+  }
+
+  /* ═════════ virtual cursor ═════════ */
+  #cursor{
+    position:fixed;left:0;top:0;
+    width:20px;height:20px;border-radius:50%;
+    background:#fff;border:2px solid rgba(0,0,0,.85);
+    pointer-events:none;
+    z-index:2147483647;
+    transform:translate3d(0,0,0);
+    opacity:0;
+    transition:opacity .1s,width .08s,height .08s,background .08s;
+    will-change:transform;
+  }
   #cursor.visible{opacity:1}
-  #cursor.selecting{width:20px;height:20px;background:transparent;
-    border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55) inset}
+  #cursor.selecting{
+    width:22px;height:22px;background:transparent;
+    border:2.5px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.55) inset;
+  }
 
-  /* calibration */
-  .cal-overlay{position:fixed;inset:0;z-index:2147483646;background:rgba(4,6,10,.95);
-    display:none;flex-direction:column;align-items:center;justify-content:center}
+  /* ═════════ calibration overlay ═════════ */
+  .cal-overlay{
+    position:fixed;inset:0;z-index:2147483646;
+    background:rgba(4,6,10,.96);
+    display:none;flex-direction:column;
+    align-items:center;justify-content:center;
+    padding:20px;
+    touch-action:none;                        /* no scroll while calibrating */
+  }
   .cal-overlay.active{display:flex}
-  .cal-panel{position:absolute;top:0;left:0;right:0;padding:28px 40px;
-    display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
-  .cal-panel h2{font-size:22px;font-weight:700;letter-spacing:.4px;
+
+  .cal-panel{
+    position:absolute;top:0;left:0;right:0;
+    padding:24px 20px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    pointer-events:none;text-align:center;
+  }
+  .cal-panel h2{
+    font-size:22px;font-weight:700;letter-spacing:.4px;
     background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
-    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .cal-panel .cal-sub{font-size:13px;color:var(--muted);max-width:560px;
-    text-align:center;line-height:1.65}
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .cal-panel .cal-sub{
+    font-size:13px;color:var(--muted);
+    max-width:560px;line-height:1.65;
+  }
   .cal-panel .cal-sub b{color:#c8d2e6}
-  .cal-status{display:flex;gap:10px;align-items:center;margin-top:6px}
-  .cal-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
-    border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.6px;
-    text-transform:uppercase;background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.1);color:var(--muted);
-    transition:background .15s,color .15s,border-color .15s}
+  .cal-status{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap;justify-content:center}
+  .cal-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 12px;border-radius:999px;
+    font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);transition:background .15s,color .15s,border-color .15s;
+  }
   .cal-badge.ok{background:rgba(34,224,122,.12);border-color:rgba(34,224,122,.5);color:var(--green)}
   .cal-badge.warn{background:rgba(255,80,120,.12);border-color:rgba(255,80,120,.5);color:var(--pink)}
-  .cal-badge i{font-size:10px}
 
-  .cal-target{position:absolute;width:80px;height:80px;transform:translate(-50%,-50%);
-    pointer-events:none;transition:opacity .25s}
-  .cal-target .ring{position:absolute;inset:0;border-radius:50%;
-    border:2.5px solid var(--cyan);box-shadow:0 0 26px rgba(0,230,255,.55),
-    inset 0 0 26px rgba(0,230,255,.25);animation:cal-pulse 1.4s ease-in-out infinite}
+  .cal-target{
+    position:absolute;width:80px;height:80px;
+    transform:translate(-50%,-50%);
+    pointer-events:none;transition:opacity .25s;
+  }
+  .cal-target .ring{
+    position:absolute;inset:0;border-radius:50%;
+    border:2.5px solid var(--cyan);
+    box-shadow:0 0 26px rgba(0,230,255,.55),inset 0 0 26px rgba(0,230,255,.25);
+    animation:cal-pulse 1.4s ease-in-out infinite;
+  }
   .cal-target .ring.outer{inset:-16px;border-width:1.5px;opacity:.35;animation-delay:.4s}
   .cal-target .core{position:absolute;inset:32px;border-radius:50%;background:#fff;
     box-shadow:0 0 22px rgba(255,255,255,.9)}
@@ -63,205 +120,303 @@
   .cal-target.captured .ring{border-color:var(--green);box-shadow:0 0 40px rgba(34,224,122,.9);animation:none}
   .cal-target.captured .core{background:var(--green)}
 
-  .cal-actions{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);
-    display:flex;gap:14px;pointer-events:auto}
-  .cal-btn{padding:18px 44px;font-size:15px;font-weight:800;letter-spacing:1.2px;
-    text-transform:uppercase;border-radius:14px;border:none;cursor:pointer;
-    display:inline-flex;align-items:center;gap:10px;
+  /* Calibration buttons — big tap targets */
+  .cal-actions{
+    position:absolute;bottom:100px;left:50%;transform:translateX(-50%);
+    display:flex;gap:14px;pointer-events:auto;
+    flex-wrap:wrap;justify-content:center;padding:0 20px;
+  }
+  .cal-btn{
+    min-height:60px;min-width:150px;
+    padding:16px 32px;
+    font-size:15px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+    border-radius:14px;border:none;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
     transition:transform .12s,filter .12s,box-shadow .12s;
     box-shadow:0 12px 34px rgba(0,230,255,.3);
-    background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111a}
-  .cal-btn:not(:disabled):hover{transform:translateY(-2px);filter:brightness(1.08);
-    box-shadow:0 16px 40px rgba(0,230,255,.45)}
+    background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111a;
+  }
   .cal-btn:not(:disabled):active{transform:scale(.96)}
   .cal-btn:disabled{background:rgba(255,255,255,.06);color:#4d586d;box-shadow:none;
     cursor:not-allowed;border:1px solid rgba(255,255,255,.08)}
-  .cal-btn.ghost{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
-    color:var(--muted);box-shadow:none;padding:18px 26px;font-size:12px}
-  .cal-btn.ghost:not(:disabled):hover{color:var(--pink);border-color:rgba(255,80,120,.4);
-    filter:none;transform:none}
-  .cal-btn i{font-size:15px}
-  .cal-progress{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);
-    display:flex;gap:10px}
-  .cal-progress .step{width:50px;height:6px;border-radius:999px;
-    background:rgba(255,255,255,.1);transition:background .3s,box-shadow .3s}
+  .cal-btn.ghost{background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.1);color:var(--muted);
+    box-shadow:none;font-size:12px;min-width:auto;padding:16px 22px}
+  .cal-btn.ghost:not(:disabled):active{color:var(--pink);border-color:rgba(255,80,120,.4)}
+
+  .cal-progress{
+    position:absolute;bottom:48px;left:50%;transform:translateX(-50%);
+    display:flex;gap:10px;
+  }
+  .cal-progress .step{
+    width:50px;height:6px;border-radius:999px;
+    background:rgba(255,255,255,.1);transition:background .3s,box-shadow .3s;
+  }
   .cal-progress .step.done{background:var(--green);box-shadow:0 0 12px rgba(34,224,122,.7)}
   .cal-progress .step.current{background:var(--cyan);box-shadow:0 0 12px rgba(0,230,255,.7);
     animation:cal-pulse 1.2s ease-in-out infinite}
 
-  /* panel */
-  .panel{position:fixed;top:18px;left:18px;z-index:100;background:rgba(12,16,24,.88);
-    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-    border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px 20px;
-    width:300px;pointer-events:none;font-size:12px;display:flex;flex-direction:column;gap:12px}
-  .panel h1{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;
-    background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
-    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .panel h1 i{-webkit-text-fill-color:var(--cyan)}
-  .status-grid{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 12px;
-    background:rgba(255,255,255,.03);border-radius:10px;
-    border:1px solid rgba(255,255,255,.05);font-size:11.5px}
-  .status-grid .k{color:var(--muted);font-weight:600}
-  .status-grid .v{color:var(--text);font-weight:700;text-align:right}
-  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3a4258;
-    margin-right:6px;vertical-align:middle;transition:background .15s,box-shadow .15s}
-  .dot.on{background:var(--green);box-shadow:0 0 8px rgba(34,224,122,.8)}
-  #inputState{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;
-    border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.4px;
-    text-transform:uppercase;background:rgba(255,255,255,.06);color:var(--muted);
-    transition:background .2s,color .2s}
-  #inputState.hand{background:rgba(0,230,255,.14);color:var(--cyan)}
-  #inputState.mouse{background:rgba(168,85,247,.16);color:var(--purple)}
-  #inputState i{font-size:10px}
-  .panel .hint{font-size:11px;color:var(--muted);line-height:1.6}
-  .panel .hint b{color:#c8d2e6;font-weight:600}
-  .panel .hint i{color:var(--cyan);width:14px;text-align:center;margin-right:4px}
-  .panel .hint kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
-    border-radius:4px;padding:0 5px;font-family:inherit;font-size:10.5px}
-
-  /* tuner */
-  .tuner{position:fixed;top:18px;right:18px;z-index:150;width:360px;
-    max-height:calc(100vh - 36px);background:rgba(12,16,24,.94);
+  /* ═════════ side info panel ═════════ */
+  .panel{
+    position:fixed;top:12px;left:12px;z-index:100;
+    background:rgba(12,16,24,.88);
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border:1px solid rgba(255,255,255,.09);border-radius:16px;
-    display:flex;flex-direction:column;overflow:hidden}
-  .tuner.collapsed .tuner-body,.tuner.collapsed .tuner-foot,
+    padding:14px 16px;width:280px;
+    pointer-events:none;font-size:12px;
+    display:flex;flex-direction:column;gap:10px;
+    max-width:calc(100vw - 24px);
+  }
+  .panel h1{
+    font-size:14px;font-weight:700;
+    display:flex;align-items:center;gap:8px;
+    background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .panel h1 i{-webkit-text-fill-color:var(--cyan)}
+  .status-grid{
+    display:grid;grid-template-columns:1fr auto;gap:5px 10px;
+    padding:9px 11px;background:rgba(255,255,255,.03);
+    border-radius:10px;border:1px solid rgba(255,255,255,.05);
+    font-size:11px;
+  }
+  .status-grid .k{color:var(--muted);font-weight:600}
+  .status-grid .v{color:var(--text);font-weight:700;text-align:right}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:#3a4258;margin-right:5px;vertical-align:middle;
+    transition:background .15s,box-shadow .15s}
+  .dot.on{background:var(--green);box-shadow:0 0 8px rgba(34,224,122,.8)}
+  .panel .hint{font-size:10.5px;color:var(--muted);line-height:1.6}
+  .panel .hint b{color:#c8d2e6;font-weight:600}
+  .panel .hint i{color:var(--cyan);width:13px;text-align:center;margin-right:3px}
+  .panel .hint kbd{
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    border-radius:4px;padding:0 5px;font-family:inherit;font-size:10px;
+  }
+
+  /* ═════════ tuner ═════════ */
+  .tuner{
+    position:fixed;top:12px;right:12px;z-index:150;
+    width:340px;max-height:calc(100vh - 24px);
+    background:rgba(12,16,24,.94);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.09);border-radius:16px;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .tuner.collapsed .tuner-body,
+  .tuner.collapsed .tuner-foot,
   .tuner.collapsed .tuner-tabs{display:none}
-  .tuner-head{display:flex;align-items:center;justify-content:space-between;
-    padding:14px 16px;font-size:13px;font-weight:700;letter-spacing:.3px;
-    border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+  .tuner-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 14px;font-size:13px;font-weight:700;letter-spacing:.3px;
+    border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;
+  }
   .tuner-head .title{display:flex;align-items:center;gap:8px}
   .tuner-head .title i{color:var(--cyan)}
-  .icon-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-    color:var(--text);width:28px;height:28px;border-radius:8px;cursor:pointer;
-    display:grid;place-items:center;transition:background .15s,color .15s,border-color .15s;
-    font-size:11.5px}
-  .icon-btn:hover{background:rgba(0,230,255,.1);border-color:rgba(0,230,255,.4);color:var(--cyan)}
-  .tuner-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.06);
-    flex-shrink:0;padding:0 10px}
-  .tuner-tabs button{background:none;border:none;color:var(--muted);padding:10px 14px;
-    font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
-    cursor:pointer;border-bottom:2px solid transparent;
-    transition:color .15s,border-color .15s;display:inline-flex;align-items:center;gap:6px}
-  .tuner-tabs button:hover{color:var(--text)}
+  .icon-btn{
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    color:var(--text);width:34px;height:34px;border-radius:9px;cursor:pointer;
+    display:grid;place-items:center;
+    transition:background .15s,color .15s,border-color .15s;font-size:13px;
+  }
+  .tuner-tabs{
+    display:flex;border-bottom:1px solid rgba(255,255,255,.06);
+    flex-shrink:0;padding:0 8px;
+  }
+  .tuner-tabs button{
+    background:none;border:none;color:var(--muted);
+    padding:12px 12px;font-size:11px;font-weight:700;
+    letter-spacing:.6px;text-transform:uppercase;cursor:pointer;
+    border-bottom:2px solid transparent;
+    transition:color .15s,border-color .15s;
+    display:inline-flex;align-items:center;gap:5px;
+    min-height:44px;
+  }
   .tuner-tabs button.active{color:var(--cyan);border-bottom-color:var(--cyan)}
-  .tuner-body{padding:8px 16px 12px;overflow-y:auto;overflow-x:hidden;flex:1}
-  .tuner-body::-webkit-scrollbar{width:8px}
-  .tuner-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
+  .tuner-body{
+    padding:8px 14px 12px;overflow-y:auto;overflow-x:hidden;flex:1;
+    -webkit-overflow-scrolling:touch;
+  }
   .tuner-body.hidden{display:none}
-  .tuner-group{font-size:10.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
-    color:var(--muted);margin:14px 0 6px;display:flex;align-items:center;gap:8px}
+  .tuner-group{
+    font-size:10.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--muted);margin:14px 0 6px;
+    display:flex;align-items:center;gap:8px;
+  }
   .tuner-group:first-child{margin-top:6px}
   .tuner-group::after{content:'';flex:1;height:1px;
     background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
-  .tuner-row{display:grid;grid-template-columns:1fr 82px;gap:6px 10px;
-    align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.035)}
+  .tuner-row{
+    display:grid;grid-template-columns:1fr 84px;
+    gap:6px 10px;align-items:center;
+    padding:10px 0;border-bottom:1px solid rgba(255,255,255,.035);
+  }
   .tuner-row:last-child{border-bottom:none}
   .tuner-row label{font-size:11.5px;color:#b8c2d6;font-weight:500;letter-spacing:.2px}
-  .tuner-row .num{width:100%;background:rgba(255,255,255,.045);
-    border:1px solid rgba(255,255,255,.09);color:var(--text);
-    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;
-    padding:6px;border-radius:7px;text-align:right;font-weight:600;
-    transition:border-color .15s,background .15s}
-  .tuner-row .num:hover{border-color:rgba(0,230,255,.4)}
+  .tuner-row .num{
+    width:100%;min-height:34px;
+    background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);
+    color:var(--text);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:12px;padding:6px 8px;border-radius:8px;
+    text-align:right;font-weight:600;
+  }
   .tuner-row .num:focus{outline:none;border-color:var(--cyan);background:rgba(0,230,255,.05)}
-  .tuner-row input[type=range]{grid-column:1/-1;-webkit-appearance:none;appearance:none;
-    width:100%;height:4px;border-radius:999px;background:rgba(255,255,255,.09);
-    outline:none;margin-top:2px}
-  .tuner-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
-    width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #0b0e14;
-    transition:transform .12s;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
-  .tuner-row input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.18)}
-  .tuner-row input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
-    background:#fff;border:2px solid #0b0e14}
-  .tuner-row select{grid-column:1/-1;background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.1);color:var(--text);font-size:11.5px;
-    padding:8px 10px;border-radius:8px;font-weight:600;letter-spacing:.3px}
-  .tuner-row select:focus{outline:none;border-color:var(--cyan)}
-  .json-area{width:100%;min-height:320px;background:rgba(0,0,0,.35);
-    border:1px solid rgba(255,255,255,.07);border-radius:10px;color:#8be9fd;
-    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;
-    line-height:1.5;padding:12px;resize:vertical;outline:none;letter-spacing:.2px}
+  .tuner-row input[type=range]{
+    grid-column:1/-1;-webkit-appearance:none;appearance:none;
+    width:100%;height:24px;                         /* bigger touch zone */
+    background:transparent;outline:none;margin-top:2px;
+    padding:0;
+  }
+  .tuner-row input[type=range]::-webkit-slider-runnable-track{
+    height:6px;border-radius:999px;background:rgba(255,255,255,.09);
+  }
+  .tuner-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:24px;height:24px;border-radius:50%;
+    background:#fff;border:2px solid #0b0e14;
+    margin-top:-9px;
+    box-shadow:0 0 0 1px rgba(255,255,255,.25);
+  }
+  .tuner-row input[type=range]::-moz-range-track{
+    height:6px;border-radius:999px;background:rgba(255,255,255,.09);
+  }
+  .tuner-row input[type=range]::-moz-range-thumb{
+    width:24px;height:24px;border-radius:50%;
+    background:#fff;border:2px solid #0b0e14;
+  }
+  .tuner-row select{
+    grid-column:1/-1;min-height:38px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);font-size:12px;padding:8px 10px;
+    border-radius:8px;font-weight:600;letter-spacing:.3px;
+  }
+  .json-area{
+    width:100%;min-height:300px;
+    background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.07);border-radius:10px;
+    color:#8be9fd;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:11px;line-height:1.5;padding:12px;resize:vertical;
+    outline:none;letter-spacing:.2px;
+  }
   .json-area:focus{border-color:var(--cyan)}
   .json-help{font-size:10.5px;color:var(--muted);letter-spacing:.3px;
     margin-bottom:8px;line-height:1.5}
-  .tuner-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);
-    display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
-  .tuner-foot button{flex:1 1 auto;min-width:88px;padding:9px 12px;font-size:11.5px;
-    font-weight:700;letter-spacing:.3px;background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.1);color:var(--text);border-radius:9px;
+  .tuner-foot{
+    padding:10px 14px;border-top:1px solid rgba(255,255,255,.06);
+    display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;
+  }
+  .tuner-foot button{
+    flex:1 1 auto;min-width:88px;min-height:42px;
+    padding:10px 12px;font-size:11.5px;font-weight:700;letter-spacing:.3px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);border-radius:10px;cursor:pointer;
     display:inline-flex;align-items:center;justify-content:center;gap:6px;
-    transition:background .15s,border-color .15s,color .15s}
-  .tuner-foot button:hover{background:rgba(0,230,255,.08);
-    border-color:rgba(0,230,255,.4);color:var(--cyan)}
-  .tuner-foot button.primary{background:linear-gradient(135deg,var(--cyan),var(--blue));
-    border:none;color:#06111a}
-  .tuner-foot button.primary:hover{filter:brightness(1.1);color:#06111a}
+  }
+  .tuner-foot button:active{background:rgba(0,230,255,.08);color:var(--cyan)}
+  .tuner-foot button.primary{
+    background:linear-gradient(135deg,var(--cyan),var(--blue));
+    border:none;color:#06111a;
+  }
 
-  .status-pill{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;
-    display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;
-    background:rgba(12,16,24,.85);backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);
-    font-size:11.5px;letter-spacing:.3px;color:var(--muted);pointer-events:none}
-  .status-pill i{color:var(--cyan)}
-  .status-pill .live-dot{width:8px;height:8px;border-radius:50%;background:var(--red);
-    box-shadow:0 0 10px var(--red);animation:pulse 1.4s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .toast{position:fixed;bottom:78px;left:50%;transform:translate(-50%,20px);
-    padding:10px 20px;border-radius:12px;background:rgba(12,16,24,.92);
+  /* ═════════ status pill / toast ═════════ */
+  .status-pill{
+    position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+    z-index:100;display:flex;align-items:center;gap:8px;
+    padding:8px 16px;border-radius:999px;
+    background:rgba(12,16,24,.85);
     backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.1);color:var(--text);font-size:12px;
-    letter-spacing:.3px;opacity:0;pointer-events:none;
-    transition:opacity .25s,transform .25s;z-index:2147483645}
+    border:1px solid rgba(255,255,255,.08);
+    font-size:11px;letter-spacing:.3px;color:var(--muted);
+    pointer-events:none;white-space:nowrap;
+    max-width:calc(100vw - 32px);
+  }
+  .status-pill i{color:var(--cyan)}
+  .status-pill .live-dot{
+    width:8px;height:8px;border-radius:50%;background:var(--red);
+    box-shadow:0 0 10px var(--red);animation:pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .toast{
+    position:fixed;bottom:70px;left:50%;transform:translate(-50%,20px);
+    padding:10px 20px;border-radius:12px;
+    background:rgba(12,16,24,.92);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);font-size:12px;letter-spacing:.3px;
+    opacity:0;pointer-events:none;z-index:2147483645;
+    transition:opacity .25s,transform .25s;
+    max-width:calc(100vw - 32px);text-align:center;
+  }
   .toast.show{opacity:1;transform:translate(-50%,0)}
   .toast i{color:var(--cyan);margin-right:6px}
 
-  main{max-width:960px;margin:0 auto;padding:120px 32px 200px}
-  h2.section{font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
-    color:var(--muted);margin:40px 0 18px;display:flex;align-items:center;gap:10px}
+  /* ═════════ demo content ═════════ */
+  main{max-width:960px;margin:0 auto;padding:100px 24px 200px}
+  h2.section{
+    font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--muted);margin:40px 0 18px;
+    display:flex;align-items:center;gap:10px;
+  }
   h2.section::after{content:'';flex:1;height:1px;
     background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
-  .target-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-  @media (max-width:900px){.target-grid{grid-template-columns:repeat(2,1fr)}}
-  .target{position:relative;aspect-ratio:1/1;border-radius:20px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-    background:rgba(255,255,255,.035);border:1.5px solid rgba(255,255,255,.09);
-    color:var(--text);user-select:none;cursor:none;
-    transition:transform .18s,background .18s,border-color .18s,box-shadow .18s}
+
+  .target-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media (max-width:800px){.target-grid{grid-template-columns:repeat(2,1fr)}}
+
+  .target{
+    position:relative;aspect-ratio:1/1;border-radius:20px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;background:rgba(255,255,255,.035);
+    border:1.5px solid rgba(255,255,255,.09);color:var(--text);
+    user-select:none;cursor:none;
+    transition:transform .18s,background .18s,border-color .18s,box-shadow .18s;
+  }
   .target i{font-size:28px;color:var(--c);transition:transform .18s}
   .target span{font-size:10.5px;font-weight:600;letter-spacing:.8px;
     text-transform:uppercase;color:var(--muted)}
-  .target:hover{transform:translateY(-4px);
-    border-color:color-mix(in srgb,var(--c) 65%,transparent)}
-  .target:hover i{transform:scale(1.12)}
   .target.flash{transform:scale(.94);border-color:var(--c);
     box-shadow:0 0 34px color-mix(in srgb,var(--c) 55%,transparent)}
-  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   @media (max-width:700px){.cards{grid-template-columns:1fr}}
-  .card.draggable{padding:22px 20px;border-radius:18px;
-    background:linear-gradient(135deg,color-mix(in srgb,var(--c) 22%,#0d1220),
-    color-mix(in srgb,var(--c) 6%,#0d1220));
+  .card.draggable{
+    padding:20px;border-radius:18px;
+    background:linear-gradient(135deg,
+      color-mix(in srgb,var(--c) 22%,#0d1220),
+      color-mix(in srgb,var(--c) 6%,#0d1220));
     border:1.5px solid color-mix(in srgb,var(--c) 55%,transparent);
     user-select:none;cursor:none;
     box-shadow:0 8px 26px color-mix(in srgb,var(--c) 12%,transparent);
-    transition:box-shadow .18s,transform .18s,border-color .18s}
+    transition:box-shadow .18s,transform .18s,border-color .18s;
+  }
   .card.draggable i{font-size:20px;color:var(--c)}
-  .card.draggable h3{font-size:14px;margin-top:10px;font-weight:700}
+  .card.draggable h3{font-size:14px;margin-top:8px;font-weight:700}
   .card.draggable p{font-size:11px;color:var(--muted);margin-top:4px}
   .card.draggable.dragging{border-color:var(--gold);
     box-shadow:0 18px 44px color-mix(in srgb,var(--gold) 35%,transparent);z-index:200}
-  .text-block{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);
-    border-radius:16px;padding:24px 28px;line-height:1.8;font-size:14.5px;
-    color:#c8d2e6;user-select:text;cursor:none}
-  .text-block h3{font-size:15px;color:var(--text);margin-bottom:12px;letter-spacing:.2px}
+
+  .text-block{
+    background:rgba(255,255,255,.025);
+    border:1px solid rgba(255,255,255,.06);border-radius:16px;
+    padding:22px 24px;line-height:1.8;font-size:14px;color:#c8d2e6;
+    user-select:text;cursor:none;
+  }
+  .text-block h3{font-size:15px;color:var(--text);margin-bottom:12px}
   .text-block p{margin-bottom:14px}
   .text-block p:last-child{margin-bottom:0}
-  .text-block code{background:rgba(0,230,255,.08);border:1px solid rgba(0,230,255,.18);
-    padding:1px 6px;border-radius:5px;font-family:ui-monospace,monospace;
-    font-size:12.5px;color:var(--cyan)}
+  .text-block code{background:rgba(0,230,255,.08);
+    border:1px solid rgba(0,230,255,.18);padding:1px 6px;border-radius:5px;
+    font-family:ui-monospace,monospace;font-size:12.5px;color:var(--cyan)}
   ::selection{background:rgba(0,230,255,.4);color:#fff}
-  .page-end{text-align:center;color:#3d4757;font-size:12px;letter-spacing:1px;
-    text-transform:uppercase;margin-top:80px}
+
+  .page-end{text-align:center;color:#3d4757;font-size:12px;
+    letter-spacing:1px;text-transform:uppercase;margin-top:80px}
 </style>
 </head>
 <body>
@@ -269,14 +424,14 @@
 <div id="cursor"></div>
 <video id="video" autoplay playsinline muted></video>
 
-<!-- calibration -->
+<!-- ═════════ calibration overlay ═════════ -->
 <div class="cal-overlay" id="calOverlay">
   <div class="cal-panel">
     <h2>Calibrate your cursor</h2>
     <p class="cal-sub">
-      <b>Point your hand toward the target dot.</b> When your fingertip is on the target,
-      <b>click Confirm with your real mouse</b>. Repeat for all 4 corners. This corrects
-      for your camera being off to one side.
+      <b>Point your hand toward the target dot.</b>
+      Tap <b>Confirm</b> when your fingertip is on the target — or pinch with your other hand.
+      Repeat for all 4 corners. This corrects for your camera's position.
     </p>
     <div class="cal-status">
       <span class="cal-badge" id="calHandBadge"><i class="fa-solid fa-hand"></i>
@@ -301,55 +456,53 @@
   </div>
 </div>
 
-<!-- panel -->
+<!-- ═════════ info panel ═════════ -->
 <div class="panel">
   <h1><i class="fa-solid fa-hand-pointer"></i> DeX Hand Cursor</h1>
   <div class="status-grid">
-    <div class="k">Input</div>
-    <div class="v"><span id="inputState"><i class="fa-solid fa-circle"></i>
-      <span id="inputLabel">idle</span></span></div>
     <div class="k"><span class="dot" id="handDot"></span>Hand</div>
     <div class="v" id="handState">absent</div>
     <div class="k">Gesture</div>
     <div class="v" id="actionState">Idle</div>
-    <div class="k">Pipeline</div>
+    <div class="k">Worker</div>
+    <div class="v" id="workerState">loading…</div>
+    <div class="k">FPS</div>
     <div class="v" id="fpsState">—</div>
     <div class="k">Calibration</div>
     <div class="v" id="calState">—</div>
   </div>
   <div class="hint">
     <i class="fa-solid fa-arrow-pointer"></i><b>Index</b> → move<br>
-    <i class="fa-solid fa-hand-point-up"></i><b>Thumb + Index (quick)</b> → click<br>
-    <i class="fa-solid fa-i-cursor"></i><b>Thumb + Index (hold)</b> → select<br>
-    <i class="fa-solid fa-up-down-left-right"></i><b>Thumb + Middle</b> → drag<br>
+    <i class="fa-solid fa-hand-point-up"></i><b>Pinch thumb+index</b> → click<br>
+    <i class="fa-solid fa-i-cursor"></i><b>Hold pinch</b> → select text<br>
+    <i class="fa-solid fa-up-down-left-right"></i><b>Pinch thumb+middle</b> → drag<br>
     <i class="fa-solid fa-hand-peace"></i><b>Peace sign</b> → scroll
   </div>
   <div class="hint" style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;">
-    <i class="fa-solid fa-computer-mouse"></i>Mouse works too.<br>
-    <kbd>R</kbd> recalibrate &nbsp;<kbd>Esc</kbd> show cursor
+    <i class="fa-solid fa-mobile-screen"></i>Touch-friendly. Hand is the only cursor.<br>
+    <kbd>R</kbd> recalibrate
   </div>
 </div>
 
-<!-- tuner -->
+<!-- ═════════ tuner ═════════ -->
 <div class="tuner" id="tuner">
   <div class="tuner-head">
     <div class="title"><i class="fa-solid fa-sliders"></i> Tuner</div>
-    <div><button class="icon-btn" id="tunerToggle" title="Collapse">
-      <i class="fa-solid fa-chevron-up"></i></button></div>
+    <button class="icon-btn" id="tunerToggle"><i class="fa-solid fa-chevron-up"></i></button>
   </div>
   <div class="tuner-tabs">
     <button id="tabTuners" class="active"><i class="fa-solid fa-sliders"></i> Values</button>
-    <button id="tabJson"><i class="fa-solid fa-code"></i> Config JSON</button>
+    <button id="tabJson"><i class="fa-solid fa-code"></i> JSON</button>
   </div>
   <div class="tuner-body" id="paneTuners"></div>
   <div class="tuner-body hidden" id="paneJson">
-    <p class="json-help">Live config — edit and click <b>Apply</b>.</p>
+    <p class="json-help">Live config — edit and tap <b>Apply</b>.</p>
     <textarea class="json-area" id="jsonArea" spellcheck="false"></textarea>
   </div>
   <div class="tuner-foot">
     <button id="resetTuner"><i class="fa-solid fa-rotate-left"></i> Reset</button>
     <button id="recalBtn"><i class="fa-solid fa-crosshairs"></i> Recalibrate</button>
-    <button id="copyJson" class="primary"><i class="fa-solid fa-copy"></i> Copy JSON</button>
+    <button id="copyJson" class="primary"><i class="fa-solid fa-copy"></i> Copy</button>
     <button id="applyJson"><i class="fa-solid fa-check"></i> Apply</button>
   </div>
 </div>
@@ -357,25 +510,25 @@
 <div class="status-pill">
   <span class="live-dot"></span>
   <i class="fa-solid fa-video"></i>
-  <span id="pillText">Initialising camera…</span>
+  <span id="pillText">Initialising…</span>
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- ═════════ demo content ═════════ -->
 <main>
   <h2 class="section">Selectable Text</h2>
   <div class="text-block">
-    <h3>AB-filter + affine calibration</h3>
+    <h3>Worker + LERP</h3>
     <p>
-      The pointer is now driven by an <b>alpha-beta filter</b> — a steady-state Kalman
-      tuned for cursor tracking. Position is passed through with almost no smoothing;
-      the filter only smooths <i>velocity</i>. The DOM cursor is placed at
-      <code>lastPos + velocity × (elapsed + pipelineLatency)</code>, which cancels the
-      camera + inference delay. A tiny dead-zone removes jitter without adding lag.
+      MediaPipe inference is now running inside a <b>Web Worker</b>. The main thread
+      only grabs a video frame, transfers it as an ImageBitmap, and receives back a
+      tiny landmark payload. This keeps the UI thread free.
     </p>
     <p>
-      Calibration records your hand's raw camera coordinates at four screen corners
-      and computes a full <b>affine transform</b> — so a camera placed off to the left
-      maps correctly to your screen. Stored in <code>localStorage</code>.
+      The visible cursor is driven by a <b>LERP loop</b> on the main thread at 60–120 Hz.
+      It glides toward the latest target with a factor that scales with distance —
+      small moves are smoothed, big moves snap. That removes micro-shake without
+      adding felt lag.
     </p>
   </div>
 
@@ -394,258 +547,105 @@
   <h2 class="section">Draggable Cards</h2>
   <div class="cards">
     <div class="card draggable" style="--c:var(--cyan)"   data-drag>
-      <i class="fa-solid fa-cube"></i><h3>Card Alpha</h3><p>Thumb + middle to drag</p></div>
+      <i class="fa-solid fa-cube"></i><h3>Card Alpha</h3><p>Pinch thumb+middle</p></div>
     <div class="card draggable" style="--c:var(--purple)" data-drag>
-      <i class="fa-solid fa-cube"></i><h3>Card Beta</h3><p>Thumb + middle to drag</p></div>
+      <i class="fa-solid fa-cube"></i><h3>Card Beta</h3><p>Pinch thumb+middle</p></div>
     <div class="card draggable" style="--c:var(--orange)" data-drag>
-      <i class="fa-solid fa-cube"></i><h3>Card Gamma</h3><p>Thumb + middle to drag</p></div>
+      <i class="fa-solid fa-cube"></i><h3>Card Gamma</h3><p>Pinch thumb+middle</p></div>
   </div>
 
-  <p class="page-end"><i class="fa-solid fa-arrow-down"></i> &nbsp; end of page &nbsp; <i class="fa-solid fa-arrow-down"></i></p>
+  <p class="page-end"><i class="fa-solid fa-arrow-down"></i> end of page <i class="fa-solid fa-arrow-down"></i></p>
 </main>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
 (function(){
 "use strict";
 
-/* ─── DOM ─── */
-const video=document.getElementById("video");
-const cursorEl=document.getElementById("cursor");
-const handDot=document.getElementById("handDot");
-const handState=document.getElementById("handState");
-const actionState=document.getElementById("actionState");
-const fpsState=document.getElementById("fpsState");
-const calState=document.getElementById("calState");
-const pillText=document.getElementById("pillText");
-const toastEl=document.getElementById("toast");
-const jsonArea=document.getElementById("jsonArea");
-const paneTuners=document.getElementById("paneTuners");
-const paneJson=document.getElementById("paneJson");
-const tabTuners=document.getElementById("tabTuners");
-const tabJson=document.getElementById("tabJson");
-const inputState=document.getElementById("inputState");
-const inputLabel=document.getElementById("inputLabel");
-const calOverlay=document.getElementById("calOverlay");
-const calTarget=document.getElementById("calTarget");
-const calHandBadge=document.getElementById("calHandBadge");
-const calHandText=document.getElementById("calHandText");
-const calCornerText=document.getElementById("calCornerText");
-const calConfirm=document.getElementById("calConfirm");
-const calBack=document.getElementById("calBack");
-const calCancel=document.getElementById("calCancel");
-const calProgress=document.getElementById("calProgress");
+/* ═══════════ DOM ═══════════ */
+const video        = document.getElementById("video");
+const cursorEl     = document.getElementById("cursor");
+const handDot      = document.getElementById("handDot");
+const handState    = document.getElementById("handState");
+const actionState  = document.getElementById("actionState");
+const workerState  = document.getElementById("workerState");
+const fpsState     = document.getElementById("fpsState");
+const calState     = document.getElementById("calState");
+const pillText     = document.getElementById("pillText");
+const toastEl      = document.getElementById("toast");
+const jsonArea     = document.getElementById("jsonArea");
+const paneTuners   = document.getElementById("paneTuners");
+const paneJson     = document.getElementById("paneJson");
+const tabTuners    = document.getElementById("tabTuners");
+const tabJson      = document.getElementById("tabJson");
 
-/* ═══════════════════════════════════════════════
-   TUNER DEFS — pre-configured for low-latency
-   ═══════════════════════════════════════════════ */
-const TUNER_DEFS={
-  /* Cursor / filter */
-  abAlpha:        {g:"Cursor",   l:"Smoothing α (0.5=stable,1=raw)", min:0.30,max:1.00,step:0.01, d:0.70},
-  abBeta:         {g:"Cursor",   l:"Velocity β (trust measurement)", min:0.02,max:0.80,step:0.01, d:0.22},
-  latencyMs:      {g:"Cursor",   l:"Pipeline latency comp (ms)",      min:0,  max:250,step:5,   d:90},
-  maxPredictPx:   {g:"Cursor",   l:"Max prediction (px)",             min:0,  max:500,step:10,  d:180},
-  stillDeadPx:    {g:"Cursor",   l:"Still dead-zone (px)",            min:0,  max:6,  step:0.2, d:1.2},
-  predictGate:    {g:"Cursor",   l:"Predict only above (px/s)",       min:0,  max:800,step:20,  d:80},
-  marginX:        {g:"Cursor",   l:"Fallback margin X",               min:0,  max:0.3,step:0.01,d:0.14},
-  marginY:        {g:"Cursor",   l:"Fallback margin Y",               min:0,  max:0.3,step:0.01,d:0.14},
-  handTimeoutMs:  {g:"Cursor",   l:"Hand→Mouse handoff (ms)",         min:80, max:1500,step:10,d:300},
+const calOverlay   = document.getElementById("calOverlay");
+const calTarget    = document.getElementById("calTarget");
+const calHandBadge = document.getElementById("calHandBadge");
+const calHandText  = document.getElementById("calHandText");
+const calCornerText= document.getElementById("calCornerText");
+const calConfirm   = document.getElementById("calConfirm");
+const calBack      = document.getElementById("calBack");
+const calCancel    = document.getElementById("calCancel");
+const calProgress  = document.getElementById("calProgress");
+
+/* ═══════════ Tuner definitions ═══════════ */
+const TUNER_DEFS = {
+  /* LERP smoothing */
+  lerpMin:      {g:"Smoothing", l:"Min LERP factor (stillness)",  min:0.05,max:0.60,step:0.01, d:0.20},
+  lerpSpeed:    {g:"Smoothing", l:"Speed LERP gain",              min:0.000,max:0.05,step:0.001,d:0.010},
+  predictMs:    {g:"Smoothing", l:"Predict ahead (ms)",           min:0,   max:200, step:5,   d:70},
+  deadPx:       {g:"Smoothing", l:"Dead-zone (px)",               min:0,   max:8,   step:0.2, d:0.8},
 
   /* Click */
-  clickPinch:     {g:"Click",    l:"Pinch distance",                  min:0.02,max:0.15,step:0.005,d:0.055},
-  releaseFactor:  {g:"Click",    l:"Release × start",                 min:1.05,max:2.5, step:0.05, d:1.4},
-  pinchConfirm:   {g:"Click",    l:"Confirm frames",                  min:1,   max:6,   step:1,    d:3},
-  clickCooldown:  {g:"Click",    l:"Cooldown (ms)",                   min:0,   max:1500,step:10,   d:280},
-  minHandSpan:    {g:"Click",    l:"Min hand span (fist reject)",     min:0,   max:0.4, step:0.01, d:0.13},
+  clickPinch:   {g:"Click",     l:"Pinch distance",               min:0.02,max:0.15,step:0.005,d:0.055},
+  releaseFactor:{g:"Click",     l:"Release × start",              min:1.05,max:2.5, step:0.05, d:1.4},
+  confirmFrames:{g:"Click",     l:"Confirm frames",               min:1,   max:6,   step:1,    d:3},
+  clickCooldown:{g:"Click",     l:"Cooldown (ms)",                min:0,   max:1500,step:10,   d:280},
+  minHandSpan:  {g:"Click",     l:"Min hand span (fist reject)",  min:0,   max:0.4, step:0.01, d:0.13},
 
   /* Select */
-  selectHoldMs:   {g:"Select",   l:"Hold to select (ms)",             min:150, max:1200,step:10,   d:400},
-  clickMaxMs:     {g:"Select",   l:"Click window (ms)",               min:80,  max:600, step:10,   d:260},
+  selectHoldMs: {g:"Select",    l:"Hold to select (ms)",          min:150, max:1200,step:10,   d:400},
+  clickMaxMs:   {g:"Select",    l:"Click window (ms)",            min:80,  max:600, step:10,   d:260},
 
   /* Drag */
-  dragPinch:      {g:"Drag",     l:"Drag pinch distance",             min:0.02,max:0.15,step:0.005,d:0.060},
+  dragPinch:    {g:"Drag",      l:"Drag pinch distance",          min:0.02,max:0.15,step:0.005,d:0.060},
 
   /* Scroll */
-  scrollMode:     {g:"Scroll",   l:"Mode", type:"select",
-                   options:[["palm","Palm Y"],["tilt","Tilt"],["depth","Depth push"]],d:"palm"},
-  scrollSens:     {g:"Scroll",   l:"Sensitivity",                     min:0.2, max:12,  step:0.1,  d:3.2},
-  scrollDead:     {g:"Scroll",   l:"Dead-zone",                       min:0,   max:0.01,step:0.0001,d:0.0004},
-  scrollMax:      {g:"Scroll",   l:"Max / frame (px)",                min:50,  max:800, step:10,   d:400},
-  scrollBoost:    {g:"Scroll",   l:"Velocity boost",                  min:0,   max:1.5, step:0.05, d:0.6},
-  momentum:       {g:"Momentum", l:"Coast after release",             min:0,   max:0.98,step:0.02, d:0.5},
-  momentumDecay:  {g:"Momentum", l:"Decay per frame",                 min:0.85,max:0.99,step:0.005,d:0.94},
+  scrollMode:   {g:"Scroll",    l:"Mode", type:"select",
+                 options:[["palm","Palm Y"],["tilt","Tilt"],["depth","Depth push"]],
+                 d:"palm"},
+  scrollSens:   {g:"Scroll",    l:"Sensitivity",                  min:0.2, max:12,  step:0.1,  d:3.2},
+  scrollDead:   {g:"Scroll",    l:"Dead-zone",                    min:0,   max:0.01,step:0.0001,d:0.0004},
+  scrollMax:    {g:"Scroll",    l:"Max / frame (px)",             min:50,  max:800, step:10,   d:400},
+  momentum:     {g:"Momentum",  l:"Coast after release",          min:0,   max:0.98,step:0.02, d:0.5},
+  momentumDecay:{g:"Momentum",  l:"Decay per frame",              min:0.85,max:0.99,step:0.005,d:0.94},
 };
 
-const CFG_KEY="dex_v6_cfg", CAL_KEY="dex_v6_cal";
-const T={};
-Object.keys(TUNER_DEFS).forEach(k=>T[k]=TUNER_DEFS[k].d);
-try{const r=localStorage.getItem(CFG_KEY);if(r){const p=JSON.parse(r);
-  Object.keys(TUNER_DEFS).forEach(k=>{if(k in p)T[k]=p[k]})}}catch{}
-const saveCfg=()=>{try{localStorage.setItem(CFG_KEY,JSON.stringify(T))}catch{}};
+const CFG_KEY = "dex_worker_cfg_v1";
+const CAL_KEY = "dex_worker_cal_v1";
 
-/* ═══════════════════════════════════════════════
-   ALPHA-BETA FILTER (2D, constant velocity)
-   ═══════════════════════════════════════════════ */
-function makeAB(){
-  let x=0,y=0,vx=0,vy=0,init=false;
-  return {
-    step(mx,my,dt){
-      if(!init){x=mx;y=my;vx=0;vy=0;init=true;return}
-      if(dt<=0)return;
-      const px=x+vx*dt, py=y+vy*dt;
-      const rx=mx-px, ry=my-py;
-      x=px+T.abAlpha*rx;
-      y=py+T.abAlpha*ry;
-      vx+=T.abBeta*rx/dt;
-      vy+=T.abBeta*ry/dt;
-    },
-    predict(dtAhead){return{x:x+vx*dtAhead,y:y+vy*dtAhead}},
-    velocity(){return{x:vx,y:vy}},
-    reset(){init=false;x=y=vx=vy=0},
-    get initialized(){return init},
-  };
-}
-const ab=makeAB();
+const T = {};
+Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].d; });
+try { const r = localStorage.getItem(CFG_KEY); if (r) {
+  const p = JSON.parse(r);
+  Object.keys(TUNER_DEFS).forEach(k => { if (k in p) T[k] = p[k]; });
+}} catch(_) {}
+const saveCfg = () => { try { localStorage.setItem(CFG_KEY, JSON.stringify(T)); } catch(_) {} };
 
-/* ═══════════════════════════════════════════════
-   AFFINE CALIBRATION
-   ═══════════════════════════════════════════════ */
-const CORNERS=[
-  {n:"Top Right",   nx:1,ny:0},
-  {n:"Bottom Right",nx:1,ny:1},
-  {n:"Bottom Left", nx:0,ny:1},
-  {n:"Top Left",    nx:0,ny:0},
-];
-const cal={active:false,step:0,raw:[],scr:[],M:null};
+/* ═══════════ Helpers ═══════════ */
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const clamp   = (v,a,b) => Math.max(a, Math.min(b, v));
+const dist    = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
 
-function buildAffine(raw,scr){
-  /* raw/scr: [TR,BR,BL,TL] */
-  const rTR=raw[0],rBR=raw[1],rBL=raw[2],rTL=raw[3];
-  const sTR=scr[0],sBR=scr[1],sBL=scr[2],sTL=scr[3];
-  const ra={x:rTR.x-rTL.x,y:rTR.y-rTL.y};
-  const rb={x:rBL.x-rTL.x,y:rBL.y-rTL.y};
-  const det=ra.x*rb.y-ra.y*rb.x;
-  if(Math.abs(det)<1e-6)return null;
-  const sa={x:sTR.x-sTL.x,y:sTR.y-sTL.y};
-  const sb={x:sBL.x-sTL.x,y:sBL.y-sTL.y};
-  const m00=(sa.x*rb.y-sb.x*ra.y)/det;
-  const m01=(sb.x*ra.x-sa.x*rb.x)/det;
-  const m10=(sa.y*rb.y-sb.y*ra.y)/det;
-  const m11=(sb.y*ra.x-sa.y*rb.x)/det;
-  const tx=sTL.x-(m00*rTL.x+m01*rTL.y);
-  const ty=sTL.y-(m10*rTL.x+m11*rTL.y);
-  return{m00,m01,m10,m11,tx,ty};
+function fingerExtended(lm, tip, pip){
+  const w = lm[0];
+  const dT = Math.hypot(lm[tip].x-w.x, lm[tip].y-w.y);
+  const dP = Math.hypot(lm[pip].x-w.x, lm[pip].y-w.y);
+  return dT > dP * 1.05;
 }
-function mapNorm(rawX,rawY){
-  const M=cal.M;
-  if(!M){
-    const mX=T.marginX,mY=T.marginY;
-    return{x:clamp01((rawX-mX)/(1-2*mX)),y:clamp01((rawY-mY)/(1-2*mY))};
-  }
-  return{
-    x:M.m00*rawX+M.m01*rawY+M.tx,
-    y:M.m10*rawX+M.m11*rawY+M.ty,
-  };
-}
-function mapScreen(rawX,rawY){
-  const n=mapNorm(rawX,rawY);
-  return{x:n.x*innerWidth,y:n.y*innerHeight};
-}
-try{const r=localStorage.getItem(CAL_KEY);if(r){const p=JSON.parse(r);
-  if(p&&p.raw&&p.scr&&p.raw.length===4){cal.raw=p.raw;cal.scr=p.scr;
-    cal.M=buildAffine(cal.raw,cal.scr)}}}catch{}
-const saveCal=()=>{try{localStorage.setItem(CAL_KEY,
-  JSON.stringify({raw:cal.raw,scr:cal.scr}))}catch{}};
-
-/* ─── Calibration UI ─── */
-function calStart(){
-  cal.active=true;cal.step=0;cal.raw=[];cal.scr=[];cal.M=null;ab.reset();
-  document.body.classList.add("calibrating");
-  calOverlay.classList.add("active");
-  calState.textContent="in progress";
-  calRenderStep();
-}
-function calRenderStep(){
-  const c=CORNERS[cal.step];
-  const pad=70;
-  calTarget.style.left=clamp(c.nx*innerWidth,pad,innerWidth-pad)+"px";
-  calTarget.style.top =clamp(c.ny*innerHeight,pad,innerHeight-pad)+"px";
-  calTarget.classList.remove("captured");
-  calCornerText.textContent=`Corner ${cal.step+1}/4 — ${c.n}`;
-  calBack.disabled=cal.step===0;
-  for(let i=0;i<calProgress.children.length;i++){
-    const el=calProgress.children[i];
-    el.classList.remove("current");
-    if(i<cal.step)el.classList.add("done");
-    if(i===cal.step)el.classList.add("current");
-  }
-}
-let lastRawHand={x:.5,y:.5};
-let lastHandTime=0;
-function calRefreshBadge(){
-  const fresh=(performance.now()-lastHandTime)<500;
-  if(fresh){calHandBadge.classList.add("ok");calHandBadge.classList.remove("warn");
-    calHandText.textContent="Hand: detected";calConfirm.disabled=false}
-  else{calHandBadge.classList.remove("ok");calHandBadge.classList.add("warn");
-    calHandText.textContent="Hand: not detected";calConfirm.disabled=true}
-}
-function calConfirmStep(){
-  if((performance.now()-lastHandTime)>=500)return;
-  const c=CORNERS[cal.step];
-  cal.raw[cal.step]={x:lastRawHand.x,y:lastRawHand.y};
-  cal.scr[cal.step]={x:c.nx,y:c.ny};
-  calTarget.classList.add("captured");
-  showToast(`Captured <b>${c.n}</b> — raw ${lastRawHand.x.toFixed(2)}, ${lastRawHand.y.toFixed(2)}`,1100);
-  setTimeout(()=>{
-    cal.step++;
-    if(cal.step>=4)calFinish();else calRenderStep();
-  },380);
-}
-function calBackStep(){if(cal.step>0){cal.step--;calRenderStep()}}
-function calFinish(){
-  cal.active=false;
-  document.body.classList.remove("calibrating");
-  calOverlay.classList.remove("active");
-  if(cal.raw.length===4){
-    cal.M=buildAffine(cal.raw,cal.scr);
-    if(cal.M){saveCal();calState.textContent="saved";showToast("Calibration saved",1600)}
-    else{calState.textContent="failed";showToast("Calibration failed — points degenerate",2200)}
-  }else{calState.textContent="skipped";showToast("Calibration skipped",1400)}
-}
-calConfirm.addEventListener("click",calConfirmStep);
-calBack.addEventListener("click",calBackStep);
-calCancel.addEventListener("click",()=>{cal.raw=[];cal.scr=[];calFinish()});
-
-/* ═══════════════════════════════════════════════
-   STATE
-   ═══════════════════════════════════════════════ */
-const cursor={x:innerWidth/2,y:innerHeight/2,lastRenderedX:innerWidth/2,lastRenderedY:innerHeight/2};
-const mouseTarget={x:0,y:0,seen:false};
-let lastSampleTime=0; // performance.now() of last hand sample
-let inputSource="idle";
-
-const clickPinch={active:false,confirm:0,release:0,startTime:0,startX:0,startY:0,
-  holdTimer:null,cooldownUntil:0};
-const dragPinch={active:false,confirm:0,release:0,el:null,offX:0,offY:0};
-const sel={active:false,anchorNode:null,anchorOffset:0};
-const scrollState={lastY:null,lastScale:null,velocity:0,momentum:0,active:false};
-
-/* ═══════════════════════════════════════════════
-   HELPERS
-   ═══════════════════════════════════════════════ */
-const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const clamp01=v=>Math.max(0,Math.min(1,v));
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function fingerExt(lm,tip,pip){
-  const w=lm[0];
-  const dT=Math.hypot(lm[tip].x-w.x,lm[tip].y-w.y);
-  const dP=Math.hypot(lm[pip].x-w.x,lm[pip].y-w.y);
-  return dT>dP*1.05;
-}
-function isScroll(lm){
-  return fingerExt(lm,8,6)&&!fingerExt(lm,16,14)&&
-         fingerExt(lm,12,10)&&!fingerExt(lm,20,18);
+function isScrollGesture(lm){
+  return fingerExtended(lm,8,6) && !fingerExtended(lm,16,14) &&
+         fingerExtended(lm,12,10) && !fingerExtended(lm,20,18);
 }
 function palmY(lm){return (lm[0].y+lm[5].y+lm[9].y+lm[13].y+lm[17].y)/5}
 function handSpan(lm){
@@ -655,528 +655,715 @@ function handSpan(lm){
 }
 function handAngle(lm){return Math.atan2(lm[9].y-lm[0].y,lm[9].x-lm[0].x)}
 
-function fireMouse(type,x,y,buttons){
-  const el=document.elementFromPoint(x,y)||document.body;
-  el.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,
-    clientX:x,clientY:y,button:0,buttons:buttons??0,view:window}));
-  return el;
+/* ═══════════ Affine calibration ═══════════ */
+const CORNERS = [
+  {n:"Top Right",   nx:1,ny:0},
+  {n:"Bottom Right",nx:1,ny:1},
+  {n:"Bottom Left", nx:0,ny:1},
+  {n:"Top Left",    nx:0,ny:0},
+];
+const cal = {active:false, step:0, raw:[], scr:[], M:null};
+
+function buildAffine(raw, scr){
+  const rTR=raw[0],rBR=raw[1],rBL=raw[2],rTL=raw[3];
+  const sTR=scr[0],sBR=scr[1],sBL=scr[2],sTL=scr[3];
+  const ra={x:rTR.x-rTL.x,y:rTR.y-rTL.y};
+  const rb={x:rBL.x-rTL.x,y:rBL.y-rTL.y};
+  const det = ra.x*rb.y - ra.y*rb.x;
+  if (Math.abs(det) < 1e-6) return null;
+  const sa={x:sTR.x-sTL.x,y:sTR.y-sTL.y};
+  const sb={x:sBL.x-sTL.x,y:sBL.y-sTL.y};
+  const m00 = (sa.x*rb.y - sb.x*ra.y)/det;
+  const m01 = (sb.x*ra.x - sa.x*rb.x)/det;
+  const m10 = (sa.y*rb.y - sb.y*ra.y)/det;
+  const m11 = (sb.y*ra.x - sa.y*rb.x)/det;
+  const tx = sTL.x - (m00*rTL.x + m01*rTL.y);
+  const ty = sTL.y - (m10*rTL.x + m11*rTL.y);
+  return {m00,m01,m10,m11,tx,ty};
 }
-function fireDoc(type,x,y,buttons){
-  document.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,
-    clientX:x,clientY:y,button:0,buttons:buttons??0,view:window}));
+function mapRawToScreen(rx, ry){
+  if (cal.M){
+    const n = {
+      x: cal.M.m00*rx + cal.M.m01*ry + cal.M.tx,
+      y: cal.M.m10*rx + cal.M.m11*ry + cal.M.ty,
+    };
+    return { x: n.x*innerWidth, y: n.y*innerHeight };
+  }
+  // Fallback — simple margin remap
+  const mX = 0.14, mY = 0.14;
+  return {
+    x: clamp01((rx-mX)/(1-2*mX)) * innerWidth,
+    y: clamp01((ry-mY)/(1-2*mY)) * innerHeight,
+  };
 }
-let toastTimer=null;
-function showToast(html,ms=1400){
-  toastEl.innerHTML='<i class="fa-solid fa-circle-check"></i>'+html;
-  toastEl.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>toastEl.classList.remove("show"),ms);
-}
-let lastAct="Idle";
-function setAction(t){if(t!==lastAct){lastAct=t;actionState.textContent=t}}
-let lastSrc="";
-function setSrc(s){
-  if(s===lastSrc)return;lastSrc=s;
-  inputState.classList.remove("hand","mouse");
-  if(s==="hand"){inputState.classList.add("hand");inputLabel.textContent="hand"}
-  else if(s==="mouse"){inputState.classList.add("mouse");inputLabel.textContent="mouse"}
-  else inputLabel.textContent="idle";
+try { const r = localStorage.getItem(CAL_KEY); if (r) {
+  const p = JSON.parse(r);
+  if (p && p.raw && p.scr && p.raw.length === 4){
+    cal.raw = p.raw; cal.scr = p.scr;
+    cal.M = buildAffine(cal.raw, cal.scr);
+  }
+}} catch(_) {}
+const saveCal = () => { try { localStorage.setItem(CAL_KEY,
+  JSON.stringify({raw:cal.raw, scr:cal.scr})); } catch(_) {} };
+
+/* ═══════════ Worker ═══════════ */
+const worker = new Worker("worker.js");
+let workerReady = false;
+let latestHands = [];
+let latestHandsArrived = 0;   // performance.now() of last result
+let hasFreshHand = false;
+let workerFrameBusy = false;
+
+worker.onmessage = (e) => {
+  const msg = e.data;
+  if (!msg) return;
+  if (msg.type === "ready"){
+    workerReady = true;
+    workerState.textContent = "ready";
+    pillText.textContent = "Worker ready";
+  } else if (msg.type === "results"){
+    latestHands = msg.hands || [];
+    latestHandsArrived = performance.now();
+    hasFreshHand = true;
+    handDot.classList.toggle("on", latestHands.length > 0);
+    handState.textContent = latestHands.length > 0 ? "tracking" : "absent";
+  } else if (msg.type === "error"){
+    workerState.textContent = "error";
+    console.error("Worker error:", msg.message);
+  }
+};
+worker.onerror = (e) => {
+  console.error("Worker failed:", e.message || e);
+  workerState.textContent = "failed";
+  pillText.textContent = "Worker failed — check console";
+};
+
+/* ═══════════ Frame sender (main thread → worker) ═══════════ */
+async function sendFrame(){
+  if (!workerReady || workerFrameBusy) return;
+  if (video.readyState < 2) return;
+  if (!video.videoWidth) return;
+  workerFrameBusy = true;
+  try {
+    const bmp = await createImageBitmap(video);
+    worker.postMessage({type:"frame", bitmap:bmp}, [bmp]);
+  } catch(_) { /* ignore transient errors */ }
+  workerFrameBusy = false;
 }
 
-/* ═══════════════════════════════════════════════
-   SELECTION
-   ═══════════════════════════════════════════════ */
-function caretAt(x,y){
-  if(document.caretRangeFromPoint)return document.caretRangeFromPoint(x,y);
-  if(document.caretPositionFromPoint){
-    const p=document.caretPositionFromPoint(x,y);
-    if(!p)return null;
-    const r=document.createRange();
-    r.setStart(p.offsetNode,p.offset);r.collapse(true);return r;
+function startFrameLoop(){
+  if (video.requestVideoFrameCallback){
+    const loop = () => {
+      sendFrame();
+      video.requestVideoFrameCallback(loop);
+    };
+    video.requestVideoFrameCallback(loop);
+  } else {
+    let last = 0;
+    const loop = (t) => {
+      if (t - last > 30) { sendFrame(); last = t; }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+}
+
+/* ═══════════ State ═══════════ */
+const target = { x: innerWidth/2, y: innerHeight/2, vx: 0, vy: 0, lastT: performance.now() };
+const cursor = { x: innerWidth/2, y: innerHeight/2 };
+
+const clickPinch = {active:false, confirm:0, release:0,
+  startTime:0, cooldownUntil:0, holdTimer:null};
+const dragPinch  = {active:false, confirm:0, release:0, el:null, offX:0, offY:0};
+const sel        = {active:false, anchorNode:null, anchorOffset:0};
+const scrollState= {lastY:null, lastScale:null, velocity:0, momentum:0, active:false};
+
+let lastRawHand = {x:0.5, y:0.5};
+let lastRawHandTime = 0;
+
+/* ═══════════ Mouse synthesis ═══════════ */
+function fireMouse(type, x, y, buttons){
+  const el = document.elementFromPoint(x, y) || document.body;
+  el.dispatchEvent(new MouseEvent(type, {
+    bubbles:true, cancelable:true,
+    clientX:x, clientY:y, button:0,
+    buttons:buttons ?? 0, view:window,
+  }));
+  return el;
+}
+function fireDoc(type, x, y, buttons){
+  document.dispatchEvent(new MouseEvent(type, {
+    bubbles:true, cancelable:true,
+    clientX:x, clientY:y, button:0,
+    buttons:buttons ?? 0, view:window,
+  }));
+}
+
+/* ═══════════ Toast / labels ═══════════ */
+let toastTimer = null;
+function showToast(html, ms=1400){
+  toastEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>' + html;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
+}
+let lastAction = "Idle";
+function setAction(t){ if (t !== lastAction){ lastAction = t; actionState.textContent = t; } }
+
+/* ═══════════ Selection ═══════════ */
+function caretAt(x, y){
+  if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+  if (document.caretPositionFromPoint){
+    const p = document.caretPositionFromPoint(x, y);
+    if (!p) return null;
+    const r = document.createRange();
+    r.setStart(p.offsetNode, p.offset);
+    r.collapse(true);
+    return r;
   }
   return null;
 }
-function beginSel(x,y){
-  const r=caretAt(x,y);if(!r)return false;
-  sel.active=true;sel.anchorNode=r.startContainer;sel.anchorOffset=r.startOffset;
-  const s=getSelection();s.removeAllRanges();
-  const rr=document.createRange();
-  try{rr.setStart(r.startContainer,r.startOffset);rr.collapse(true);s.addRange(rr)}catch{}
-  cursorEl.classList.add("selecting");setAction("Selecting");return true;
+function beginSelection(x, y){
+  const r = caretAt(x, y); if (!r) return false;
+  sel.active = true;
+  sel.anchorNode = r.startContainer;
+  sel.anchorOffset = r.startOffset;
+  const s = window.getSelection(); s.removeAllRanges();
+  const rr = document.createRange();
+  try { rr.setStart(r.startContainer, r.startOffset); rr.collapse(true); s.addRange(rr); } catch(_) {}
+  cursorEl.classList.add("selecting");
+  setAction("Selecting");
+  return true;
 }
-function extendSel(x,y){
-  if(!sel.active)return;
-  const r=caretAt(x,y);if(!r)return;
-  const rr=document.createRange();
-  try{rr.setStart(sel.anchorNode,sel.anchorOffset);
-      rr.setEnd(r.startContainer,r.startOffset)}
-  catch{try{rr.setStart(r.startContainer,r.startOffset);
-      rr.setEnd(sel.anchorNode,sel.anchorOffset)}catch{return}}
-  const s=getSelection();s.removeAllRanges();s.addRange(rr);
+function extendSelection(x, y){
+  if (!sel.active) return;
+  const r = caretAt(x, y); if (!r) return;
+  const rr = document.createRange();
+  try { rr.setStart(sel.anchorNode, sel.anchorOffset);
+        rr.setEnd(r.startContainer, r.startOffset); }
+  catch(_){
+    try { rr.setStart(r.startContainer, r.startOffset);
+          rr.setEnd(sel.anchorNode, sel.anchorOffset); }
+    catch(_){ return; }
+  }
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(rr);
 }
-function endSel(){sel.active=false;sel.anchorNode=null;sel.anchorOffset=0;
-  cursorEl.classList.remove("selecting");setAction("Move")}
-function clearSel(){const s=getSelection();if(s)s.removeAllRanges();
-  sel.active=false;sel.anchorNode=null;sel.anchorOffset=0;
-  cursorEl.classList.remove("selecting")}
+function endSelection(){
+  sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0;
+  cursorEl.classList.remove("selecting"); setAction("Move");
+}
+function clearSelection(){
+  const s = window.getSelection(); if (s) s.removeAllRanges();
+  sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0;
+  cursorEl.classList.remove("selecting");
+}
 
-/* ═══════════════════════════════════════════════
-   CLICK / DRAG / SCROLL
-   ═══════════════════════════════════════════════ */
-function pinchDown(x,y){
-  clickPinch.active=true;clickPinch.startTime=performance.now();
-  clickPinch.startX=x;clickPinch.startY=y;
-  if(sel.active)clearSel();
-  else if(getSelection&&getSelection().rangeCount>0)getSelection().removeAllRanges();
+/* ═══════════ Click / drag ═══════════ */
+function pinchDown(x, y){
+  clickPinch.active = true;
+  clickPinch.startTime = performance.now();
+  if (sel.active) clearSelection();
+  else if (window.getSelection && window.getSelection().rangeCount > 0)
+    window.getSelection().removeAllRanges();
   clearTimeout(clickPinch.holdTimer);
-  clickPinch.holdTimer=setTimeout(()=>{
-    if(!clickPinch.active)return;
-    beginSel(cursor.x,cursor.y);
-  },T.selectHoldMs);
+  clickPinch.holdTimer = setTimeout(() => {
+    if (!clickPinch.active) return;
+    beginSelection(cursor.x, cursor.y);
+  }, T.selectHoldMs);
 }
-function pinchUp(x,y){
-  if(!clickPinch.active)return;
+function pinchUp(x, y){
+  if (!clickPinch.active) return;
   clearTimeout(clickPinch.holdTimer);
-  const held=performance.now()-clickPinch.startTime;
-  const now=performance.now();
-  if(sel.active)endSel();
-  else if(held<=T.clickMaxMs&&now>=clickPinch.cooldownUntil){
-    fireMouse("mousedown",x,y,1);fireMouse("mouseup",x,y,0);fireMouse("click",x,y,0);
-    const el=document.elementFromPoint(x,y);
-    const t=el&&el.closest&&el.closest(".target,.card.draggable");
-    if(t){t.classList.add("flash");setTimeout(()=>t.classList.remove("flash"),200)}
-    clickPinch.cooldownUntil=now+T.clickCooldown;setAction("Move");
-  }else setAction("Move");
-  clickPinch.active=false;clickPinch.confirm=0;clickPinch.release=0;
+  const held = performance.now() - clickPinch.startTime;
+  const now = performance.now();
+  if (sel.active){ endSelection(); }
+  else if (held <= T.clickMaxMs && now >= clickPinch.cooldownUntil){
+    fireMouse("mousedown", x, y, 1);
+    fireMouse("mouseup",   x, y, 0);
+    fireMouse("click",     x, y, 0);
+    const el = document.elementFromPoint(x, y);
+    const t = el && el.closest && el.closest(".target,.card.draggable,.cal-btn");
+    if (t){ t.classList.add("flash"); setTimeout(() => t.classList.remove("flash"), 200); }
+    clickPinch.cooldownUntil = now + T.clickCooldown;
+    setAction("Move");
+  } else setAction("Move");
+  clickPinch.active = false; clickPinch.confirm = 0; clickPinch.release = 0;
 }
-function dragBegin(x,y){
-  dragPinch.active=true;
-  const el=document.elementFromPoint(x,y);
-  const g=el&&el.closest&&el.closest("[data-drag]");
-  if(g){
-    const r=g.getBoundingClientRect();
-    g.style.position="fixed";g.style.left=r.left+"px";g.style.top=r.top+"px";
-    g.style.width=r.width+"px";g.style.margin="0";
-    dragPinch.el=g;dragPinch.offX=x-r.left;dragPinch.offY=y-r.top;
+function dragBegin(x, y){
+  dragPinch.active = true;
+  const el = document.elementFromPoint(x, y);
+  const g = el && el.closest && el.closest("[data-drag]");
+  if (g){
+    const r = g.getBoundingClientRect();
+    g.style.position = "fixed";
+    g.style.left = r.left + "px";
+    g.style.top  = r.top  + "px";
+    g.style.width = r.width + "px";
+    g.style.margin = "0";
+    dragPinch.el = g;
+    dragPinch.offX = x - r.left;
+    dragPinch.offY = y - r.top;
     g.classList.add("dragging");
-  }else dragPinch.el=null;
-  fireMouse("mousedown",x,y,1);fireDoc("mousedown",x,y,1);setAction("Drag");
+  } else dragPinch.el = null;
+  fireMouse("mousedown", x, y, 1);
+  fireDoc("mousedown", x, y, 1);
+  setAction("Drag");
 }
-function dragMove(x,y){
-  if(!dragPinch.active)return;
-  fireDoc("mousemove",x,y,1);
-  if(dragPinch.el){
-    dragPinch.el.style.left=(x-dragPinch.offX)+"px";
-    dragPinch.el.style.top=(y-dragPinch.offY)+"px";
+function dragMove(x, y){
+  if (!dragPinch.active) return;
+  fireDoc("mousemove", x, y, 1);
+  if (dragPinch.el){
+    dragPinch.el.style.left = (x - dragPinch.offX) + "px";
+    dragPinch.el.style.top  = (y - dragPinch.offY) + "px";
   }
 }
-function dragEnd(x,y){
-  if(!dragPinch.active)return;
-  if(dragPinch.el){dragPinch.el.classList.remove("dragging");dragPinch.el=null}
-  fireMouse("mouseup",x,y,0);fireDoc("mouseup",x,y,0);
-  dragPinch.active=false;dragPinch.confirm=0;dragPinch.release=0;setAction("Move");
+function dragEnd(x, y){
+  if (!dragPinch.active) return;
+  if (dragPinch.el){ dragPinch.el.classList.remove("dragging"); dragPinch.el = null; }
+  fireMouse("mouseup", x, y, 0);
+  fireDoc("mouseup", x, y, 0);
+  dragPinch.active = false; dragPinch.confirm = 0; dragPinch.release = 0;
+  setAction("Move");
 }
+
+/* ═══════════ Scroll ═══════════ */
 function scrollApply(a){
-  const s=document.scrollingElement||document.documentElement;
-  a=clamp(a,-T.scrollMax,T.scrollMax);
-  if(Math.abs(a)<0.5)return;s.scrollTop+=a;scrollState.velocity=a;
+  const s = document.scrollingElement || document.documentElement;
+  a = clamp(a, -T.scrollMax, T.scrollMax);
+  if (Math.abs(a) < 0.5) return;
+  s.scrollTop += a;
+  scrollState.velocity = a;
 }
 function updateScroll(lm){
-  if(!isScroll(lm)){onScrollEnd();return}
-  setAction("Scroll");scrollState.active=true;
-  let a=0;const mode=T.scrollMode;
-  if(mode==="palm"){
-    const y=palmY(lm);
-    if(scrollState.lastY!==null){
-      const dy=y-scrollState.lastY;
-      if(Math.abs(dy)>T.scrollDead){
-        const boost=1+Math.abs(dy)*T.scrollBoost*100;
-        a=-dy*T.scrollSens*innerHeight*boost;
-      }
+  if (!isScrollGesture(lm)){ onScrollEnd(); return; }
+  setAction("Scroll");
+  scrollState.active = true;
+  let a = 0;
+  const mode = T.scrollMode;
+  if (mode === "palm"){
+    const y = palmY(lm);
+    if (scrollState.lastY !== null){
+      const dy = y - scrollState.lastY;
+      if (Math.abs(dy) > T.scrollDead)
+        a = -dy * T.scrollSens * innerHeight * (1 + Math.abs(dy)*100);
     }
-    scrollState.lastY=y;
-  }else if(mode==="tilt"){
-    const ang=handAngle(lm);const n=-Math.PI/2;
-    let d=ang-n;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;
-    if(Math.abs(d)>T.scrollDead*5)a=d*T.scrollSens*30;
-  }else if(mode==="depth"){
-    const sc=handSpan(lm);
-    if(scrollState.lastScale!==null){
-      const ds=sc-scrollState.lastScale;
-      if(Math.abs(ds)>T.scrollDead*3)a=ds*T.scrollSens*900;
+    scrollState.lastY = y;
+  } else if (mode === "tilt"){
+    const ang = handAngle(lm), n = -Math.PI/2;
+    let d = ang - n;
+    while (d >  Math.PI) d -= 2*Math.PI;
+    while (d < -Math.PI) d += 2*Math.PI;
+    if (Math.abs(d) > T.scrollDead*5) a = d * T.scrollSens * 30;
+  } else if (mode === "depth"){
+    const s = handSpan(lm);
+    if (scrollState.lastScale !== null){
+      const ds = s - scrollState.lastScale;
+      if (Math.abs(ds) > T.scrollDead*3) a = ds * T.scrollSens * 900;
     }
-    scrollState.lastScale=sc;
+    scrollState.lastScale = s;
   }
-  if(a!==0)scrollApply(a);
+  if (a !== 0) scrollApply(a);
 }
 function onScrollEnd(){
-  if(scrollState.active&&T.momentum>0)
-    scrollState.momentum=scrollState.velocity*T.momentum;
-  scrollState.active=false;scrollState.velocity=0;
-  scrollState.lastY=null;scrollState.lastScale=null;
+  if (scrollState.active && T.momentum > 0)
+    scrollState.momentum = scrollState.velocity * T.momentum;
+  scrollState.active = false;
+  scrollState.velocity = 0;
+  scrollState.lastY = null;
+  scrollState.lastScale = null;
 }
 (function momentumLoop(){
-  if(Math.abs(scrollState.momentum)>0.4){
-    const s=document.scrollingElement||document.documentElement;
-    s.scrollTop+=scrollState.momentum;
-    scrollState.momentum*=T.momentumDecay;
-  }else scrollState.momentum=0;
+  if (Math.abs(scrollState.momentum) > 0.4){
+    const s = document.scrollingElement || document.documentElement;
+    s.scrollTop += scrollState.momentum;
+    scrollState.momentum *= T.momentumDecay;
+  } else scrollState.momentum = 0;
   requestAnimationFrame(momentumLoop);
 })();
 
-/* ═══════════════════════════════════════════════
-   GESTURE PROCESSING (called on hand frame)
-   ═══════════════════════════════════════════════ */
-function processGestures(lm){
-  if(cal.active)return;
-  if(sel.active)extendSel(cursor.x,cursor.y);
-  const idxD=dist(lm[4],lm[8]);
-  const midD=dist(lm[4],lm[12]);
-  const span=handSpan(lm);
-  const spanOk=span>=T.minHandSpan;
-
-  /* click / select */
-  if(!clickPinch.active){
-    if(idxD<T.clickPinch&&spanOk){
-      clickPinch.confirm++;
-      if(clickPinch.confirm>=T.pinchConfirm){pinchDown(cursor.x,cursor.y);clickPinch.confirm=0}
-    }else clickPinch.confirm=0;
-  }else{
-    if(idxD>T.clickPinch*T.releaseFactor){
-      clickPinch.release++;
-      if(clickPinch.release>=2)pinchUp(cursor.x,cursor.y);
-    }else clickPinch.release=0;
-  }
-  /* drag */
-  if(!dragPinch.active){
-    if(midD<T.dragPinch&&!clickPinch.active&&spanOk){
-      dragPinch.confirm++;
-      if(dragPinch.confirm>=T.pinchConfirm){dragBegin(cursor.x,cursor.y);dragPinch.confirm=0}
-    }else dragPinch.confirm=0;
-  }else{
-    dragMove(cursor.x,cursor.y);
-    if(midD>T.dragPinch*T.releaseFactor){
-      dragPinch.release++;
-      if(dragPinch.release>=2)dragEnd(cursor.x,cursor.y);
-    }else dragPinch.release=0;
-  }
-}
-
-/* ═══════════════════════════════════════════════
-   CURSOR LOOP (RAF, ~60-144 Hz)
-   ═══════════════════════════════════════════════ */
-function cursorLoop(){
-  const now=performance.now();
-  const handLive=(now-lastHandTime)<T.handTimeoutMs;
-
-  let src;
-  if(handLive)src="hand";
-  else if(mouseTarget.seen)src="mouse";
-  else src="idle";
-  if(src!==inputSource){inputSource=src;setSrc(src)}
-
-  if(src==="hand"&&ab.initialized){
-    /* Pipeline latency compensation: how far ahead to extrapolate */
-    const elapsed=(now-lastSampleTime)/1000;                  // time since last sample
-    const ahead=elapsed+T.latencyMs/1000;                     // + fixed pipeline delay
-    const vel=ab.velocity();
-    const speedPx=Math.hypot(vel.x,vel.y)*innerWidth;         // ≈ px/s
-
-    let predicted;
-    if(speedPx>T.predictGate){
-      predicted=ab.predict(ahead);
-      /* clamp prediction to maxPredictPx */
-      const pos=ab.predict(0);
-      const dx=(predicted.x-pos.x)*innerWidth;
-      const dy=(predicted.y-pos.y)*innerHeight;
-      const d=Math.hypot(dx,dy);
-      if(d>T.maxPredictPx){
-        const k=T.maxPredictPx/d;
-        predicted={x:pos.x+(predicted.x-pos.x)*k,y:pos.y+(predicted.y-pos.y)*k};
-      }
-    }else{
-      predicted=ab.predict(0);
+/* ═══════════ Landmark intake (from worker) ═══════════ */
+function pickCursorHand(hands){
+  if (!hands || hands.length === 0) return null;
+  // Prefer a non-scroll hand for cursor
+  let cursorHand = null, scrollHand = null;
+  for (const lm of hands){
+    if (!cal.active && isScrollGesture(lm)){
+      if (!scrollHand) scrollHand = lm;
+      continue;
     }
-
-    const scr=mapScreen(predicted.x,predicted.y);
-
-    /* Dead-zone: if the raw screen position is nearly identical, don't move */
-    const dx=scr.x-cursor.lastRenderedX, dy=scr.y-cursor.lastRenderedY;
-    if(Math.hypot(dx,dy)>T.stillDeadPx){
-      cursor.x=scr.x;cursor.y=scr.y;
-    }
-  }else if(src==="mouse"){
-    cursor.x=mouseTarget.x;cursor.y=mouseTarget.y;
+    if (!cursorHand) cursorHand = lm;
   }
-
-  if(!cal.active){
-    cursorEl.style.left=cursor.x+"px";
-    cursorEl.style.top=cursor.y+"px";
-    if(src!=="idle")cursorEl.classList.add("visible");
-    else cursorEl.classList.remove("visible");
-    cursor.lastRenderedX=cursor.x;
-    cursor.lastRenderedY=cursor.y;
-  }
-  if(cal.active)calRefreshBadge();
-  requestAnimationFrame(cursorLoop);
-}
-requestAnimationFrame(cursorLoop);
-
-/* ═══════════════════════════════════════════════
-   PHYSICAL MOUSE
-   ═══════════════════════════════════════════════ */
-addEventListener("mousemove",e=>{
-  if(e.isTrusted===false)return;
-  mouseTarget.x=e.clientX;mouseTarget.y=e.clientY;mouseTarget.seen=true;
-  lastHandTime=0; // instant handoff
-},{passive:true});
-
-/* ═══════════════════════════════════════════════
-   MediaPipe
-   ═══════════════════════════════════════════════ */
-const hands=new Hands({
-  locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
-});
-hands.setOptions({
-  maxNumHands:2,
-  modelComplexity:1,             /* full model — better accuracy */
-  minDetectionConfidence:0.65,
-  minTrackingConfidence:0.65,
-  selfPipe:true,                 /* deprecated on some builds — see below */
-  selfieMode:true,
-});
-/* Remove non-standard options if present */
-try{
-  hands.setOptions({maxNumHands:2,modelComplexity:1,
-    minDetectionConfidence:0.65,minTrackingConfidence:0.65,selfieMode:true});
-}catch{}
-
-hands.onResults(onResults);
-
-let busy=false;
-async function mpFrame(){
-  if(busy)return;
-  busy=true;
-  try{await hands.send({image:video})}catch(e){console.warn(e)}
-  busy=false;
+  return { cursorHand: cursorHand || hands[0], scrollHand };
 }
 
-/* Use requestVideoFrameCallback for accurate frame timing */
-function startVideoLoop(){
-  if(video.requestVideoFrameCallback){
-    const cb=(now,meta)=>{
-      lastFrameMetaTime=meta.presentationTime||now;
-      mpFrame();
-      video.requestVideoFrameCallback(cb);
-    };
-    video.requestVideoFrameCallback(cb);
-  }else{
-    /* Fallback: rAF-driven sampling */
-    (function loop(){mpFrame();requestAnimationFrame(loop)})();
+function updateTargetFromLandmarks(lm, now){
+  const tip = lm[8];
+  lastRawHand.x = tip.x; lastRawHand.y = tip.y;
+  lastRawHandTime = now;
+
+  const scr = mapRawToScreen(tip.x, tip.y);
+  // Estimate target velocity
+  const dt = (now - target.lastT) / 1000;
+  if (dt > 0.001 && dt < 0.5){
+    target.vx = (scr.x - target.x) / dt;
+    target.vy = (scr.y - target.y) / dt;
   }
+  target.x = scr.x;
+  target.y = scr.y;
+  target.lastT = now;
 }
-let lastFrameMetaTime=0;
 
-function onResults(results){
-  const now=performance.now();
-  const lms=results.multiHandLandmarks||[];
-  handDot.classList.toggle("on",lms.length>0);
-  handState.textContent=lms.length>0?"tracking":"absent";
-
-  if(lms.length===0){
-    if(clickPinch.active){clearTimeout(clickPinch.holdTimer);
-      clickPinch.active=false;if(sel.active)endSel()}
-    if(dragPinch.active)dragEnd(cursor.x,cursor.y);
-    onScrollEnd();
+/* ═══════════ Gesture handling on new landmarks ═══════════ */
+function processGestures(){
+  const now = performance.now();
+  const picked = pickCursorHand(latestHands);
+  if (!picked || !picked.cursorHand){
+    handState.textContent = "absent";
     return;
   }
+  updateTargetFromLandmarks(picked.cursorHand, now);
 
-  /* Pick cursor hand */
-  let cursorHand=null,scrollHand=null;
-  for(const lm of lms){
-    if(!cal.active&&isScroll(lm)){if(!scrollHand)scrollHand=lm;continue}
-    if(!cursorHand)cursorHand=lm;
+  if (cal.active) return;   // no gestures during calibration
+
+  if (sel.active) extendSelection(cursor.x, cursor.y);
+
+  const lm = picked.cursorHand;
+  const idxD = dist(lm[4], lm[8]);
+  const midD = dist(lm[4], lm[12]);
+  const span = handSpan(lm);
+  const spanOk = span >= T.minHandSpan;
+
+  /* click / select */
+  if (!clickPinch.active){
+    if (idxD < T.clickPinch && spanOk){
+      clickPinch.confirm++;
+      if (clickPinch.confirm >= T.confirmFrames){
+        pinchDown(cursor.x, cursor.y);
+        clickPinch.confirm = 0;
+      }
+    } else clickPinch.confirm = 0;
+  } else {
+    if (idxD > T.clickPinch * T.releaseFactor){
+      clickPinch.release++;
+      if (clickPinch.release >= 2) pinchUp(cursor.x, cursor.y);
+    } else clickPinch.release = 0;
   }
-  if(!cursorHand)cursorHand=lms[0];
 
-  /* Feed filter — use presentation time when available */
-  const tip=cursorHand[8];
-  lastRawHand.x=tip.x;lastRawHand.y=tip.y;
-  const sampleT=(lastFrameMetaTime>0)
-    ? lastFrameMetaTime+performance.timeOrigin
-    : now;
-  /* Fallback: if sampleT looks wrong (e.g. already in performance.now space) use now */
-  const useT=isFinite(sampleT)?sampleT:now;
-  lastSampleTime=performance.now();  // we use performance.now() for prediction base
-  /* dt since previous sample (performance.now space) */
-  if(ab.initialized){
-    const dt=Math.max(0.005,(performance.now()-prevSamplePerfNow)/1000);
-    ab.step(tip.x,tip.y,dt);
-  }else{
-    ab.step(tip.x,tip.y,0);
+  /* drag */
+  if (!dragPinch.active){
+    if (midD < T.dragPinch && !clickPinch.active && spanOk){
+      dragPinch.confirm++;
+      if (dragPinch.confirm >= T.confirmFrames){
+        dragBegin(cursor.x, cursor.y);
+        dragPinch.confirm = 0;
+      }
+    } else dragPinch.confirm = 0;
+  } else {
+    dragMove(cursor.x, cursor.y);
+    if (midD > T.dragPinch * T.releaseFactor){
+      dragPinch.release++;
+      if (dragPinch.release >= 2) dragEnd(cursor.x, cursor.y);
+    } else dragPinch.release = 0;
   }
-  prevSamplePerfNow=performance.now();
-  lastHandTime=performance.now();
 
-  processGestures(cursorHand);
-
-  if(scrollHand&&!cal.active)updateScroll(scrollHand);
+  /* scroll (from second hand if any) */
+  if (picked.scrollHand) updateScroll(picked.scrollHand);
   else onScrollEnd();
 }
-let prevSamplePerfNow=0;
 
-/* ═══════════════════════════════════════════════
-   FPS / pipeline meter
-   ═══════════════════════════════════════════════ */
-let frameCount=0,lastFpsT=performance.now();
-function tickFps(){
-  frameCount++;
-  const n=performance.now();
-  if(n-lastFpsT>=1000){
-    fpsState.textContent=frameCount+" fps";
-    frameCount=0;lastFpsT=n;
+/* ═══════════ Main RAF loop: LERP + predictive target ═══════════ */
+let frames = 0, lastFpsT = performance.now();
+
+function loop(){
+  const now = performance.now();
+
+  /* Estimate target ahead of time (compensate camera/inference latency) */
+  const elapsed = clamp((now - target.lastT) / 1000, 0, 0.15);
+  const predictS = T.predictMs / 1000;
+  const px = target.x + target.vx * (elapsed + predictS);
+  const py = target.y + target.vy * (elapsed + predictS);
+
+  /* LERP cursor toward predicted target */
+  const dx = px - cursor.x;
+  const dy = py - cursor.y;
+  const d = Math.hypot(dx, dy);
+
+  if (d < T.deadPx){
+    // Snap-settle within dead-zone
+    cursor.x += dx * 0.2;
+    cursor.y += dy * 0.2;
+  } else {
+    const f = clamp(T.lerpMin + d * T.lerpSpeed, T.lerpMin, 1);
+    cursor.x += dx * f;
+    cursor.y += dy * f;
+  }
+
+  /* Write to DOM */
+  cursorEl.style.transform = `translate3d(${(cursor.x - 10).toFixed(2)}px, ${(cursor.y - 10).toFixed(2)}px, 0)`;
+  cursorEl.classList.toggle("visible", latestHands.length > 0 || cal.active);
+
+  /* FPS */
+  frames++;
+  if (now - lastFpsT >= 1000){
+    fpsState.textContent = frames + " fps";
+    frames = 0; lastFpsT = now;
+  }
+
+  /* Process gestures when new landmarks arrived */
+  if (hasFreshHand){
+    hasFreshHand = false;
+    processGestures();
+  } else if (latestHands.length === 0){
+    onScrollEnd();
+    if (sel.active) endSelection();
+  }
+
+  /* Calibration badge */
+  if (cal.active) refreshCalBadge();
+
+  requestAnimationFrame(loop);
+}
+
+/* ═══════════ Calibration flow ═══════════ */
+function calStart(){
+  cal.active = true;
+  cal.step = 0;
+  cal.raw = []; cal.scr = []; cal.M = null;
+  document.body.classList.add("calibrating");
+  calOverlay.classList.add("active");
+  calState.textContent = "in progress";
+  renderCalStep();
+}
+function renderCalStep(){
+  const c = CORNERS[cal.step];
+  const pad = 70;
+  calTarget.style.left = clamp(c.nx*innerWidth, pad, innerWidth-pad) + "px";
+  calTarget.style.top  = clamp(c.ny*innerHeight, pad, innerHeight-pad) + "px";
+  calTarget.classList.remove("captured");
+  calCornerText.textContent = `Corner ${cal.step+1}/4 — ${c.n}`;
+  calBack.disabled = cal.step === 0;
+  for (let i = 0; i < calProgress.children.length; i++){
+    const el = calProgress.children[i];
+    el.classList.remove("current");
+    if (i < cal.step) el.classList.add("done");
+    if (i === cal.step) el.classList.add("current");
   }
 }
-const _origOnResults=onResults;
-function patchedOnResults(r){tickFps();_origOnResults(r)}
-hands.onResults(patchedOnResults);
-
-/* ═══════════════════════════════════════════════
-   CAMERA
-   ═══════════════════════════════════════════════ */
-async function startCamera(){
-  try{
-    pillText.textContent="Requesting camera…";
-    const stream=await navigator.mediaDevices.getUserMedia({
-      video:{width:{ideal:960},height:{ideal:540},
-        frameRate:{ideal:60,min:30},facingMode:"user"},
-      audio:false,
-    });
-    video.srcObject=stream;
-    await new Promise(r=>{
-      if(video.readyState>=1)return r();
-      video.onloadedmetadata=r;
-    });
-    await video.play();
-    const st=stream.getVideoTracks()[0].getSettings();
-    console.log("Camera:",st.width,"x",st.height,"@",st.frameRate);
-    pillText.textContent=`Camera live · ${st.width}×${st.height}@${Math.round(st.frameRate||30)}`;
-    startVideoLoop();
-  }catch(e){
-    console.error(e);
-    pillText.textContent="Camera blocked — mouse mode";
-    mouseTarget.seen=true;
+function refreshCalBadge(){
+  const fresh = (performance.now() - lastRawHandTime) < 500;
+  if (fresh){
+    calHandBadge.classList.add("ok");
+    calHandBadge.classList.remove("warn");
+    calHandText.textContent = "Hand: detected";
+    calConfirm.disabled = false;
+  } else {
+    calHandBadge.classList.remove("ok");
+    calHandBadge.classList.add("warn");
+    calHandText.textContent = "Hand: not detected";
+    calConfirm.disabled = true;
   }
 }
-
-/* ═══════════════════════════════════════════════
-   TUNER UI
-   ═══════════════════════════════════════════════ */
-function buildTuner(){
-  paneTuners.innerHTML="";
-  const groups={};
-  Object.keys(TUNER_DEFS).forEach(key=>{
-    const d=TUNER_DEFS[key];
-    if(!groups[d.g]){
-      const g=document.createElement("div");
-      g.className="tuner-group";g.textContent=d.g;
-      paneTuners.appendChild(g);groups[d.g]=g;
+function calConfirmStep(){
+  if ((performance.now() - lastRawHandTime) >= 500) return;
+  const c = CORNERS[cal.step];
+  cal.raw[cal.step] = {x: lastRawHand.x, y: lastRawHand.y};
+  cal.scr[cal.step] = {x: c.nx, y: c.ny};
+  calTarget.classList.add("captured");
+  showToast(`Captured <b>${c.n}</b>`, 900);
+  setTimeout(() => {
+    cal.step++;
+    if (cal.step >= 4) calFinish();
+    else renderCalStep();
+  }, 380);
+}
+function calBackStep(){ if (cal.step > 0){ cal.step--; renderCalStep(); } }
+function calFinish(){
+  cal.active = false;
+  document.body.classList.remove("calibrating");
+  calOverlay.classList.remove("active");
+  if (cal.raw.length === 4){
+    cal.M = buildAffine(cal.raw, cal.scr);
+    if (cal.M){
+      saveCal();
+      calState.textContent = "saved";
+      showToast("Calibration saved", 1600);
+    } else {
+      calState.textContent = "failed";
+      showToast("Calibration failed — try again", 2200);
     }
-    const row=document.createElement("div");
-    row.className="tuner-row";
-    if(d.type==="select"){
-      row.innerHTML=`<label>${d.l}</label><select id="t_${key}">
-        ${d.options.map(([v,l])=>`<option value="${v}" ${T[key]===v?"selected":""}>${l}</option>`).join("")}
+  } else {
+    calState.textContent = "skipped";
+    showToast("Calibration skipped", 1400);
+  }
+}
+
+/* Calibration buttons — `click` works for both touch taps and synthetic clicks */
+calConfirm.addEventListener("click", calConfirmStep);
+calBack.addEventListener("click", calBackStep);
+calCancel.addEventListener("click", () => {
+  cal.raw = []; cal.scr = [];
+  calFinish();
+});
+
+/* ═══════════ Tuner UI ═══════════ */
+function buildTuner(){
+  paneTuners.innerHTML = "";
+  const groups = {};
+  Object.keys(TUNER_DEFS).forEach(key => {
+    const d = TUNER_DEFS[key];
+    if (!groups[d.g]){
+      const g = document.createElement("div");
+      g.className = "tuner-group";
+      g.textContent = d.g;
+      paneTuners.appendChild(g);
+      groups[d.g] = g;
+    }
+    const row = document.createElement("div");
+    row.className = "tuner-row";
+    if (d.type === "select"){
+      row.innerHTML = `<label>${d.l}</label><select id="t_${key}">
+        ${d.options.map(([v,l]) =>
+          `<option value="${v}" ${T[key]===v?"selected":""}>${l}</option>`).join("")}
         </select>`;
       paneTuners.appendChild(row);
-      const s=row.querySelector("select");
-      s.addEventListener("change",()=>{T[key]=s.value;saveCfg();refreshJson()});
+      const s = row.querySelector("select");
+      s.addEventListener("change", () => { T[key] = s.value; saveCfg(); refreshJson(); });
       return;
     }
-    row.innerHTML=`<label>${d.l}</label>
-      <input class="num" id="t_${key}" type="number" min="${d.min}" max="${d.max}" step="${d.step}" value="${T[key]}">
-      <input type="range" id="r_${key}" min="${d.min}" max="${d.max}" step="${d.step}" value="${T[key]}">`;
+    row.innerHTML = `
+      <label>${d.l}</label>
+      <input class="num" id="t_${key}" type="number"
+             min="${d.min}" max="${d.max}" step="${d.step}" value="${T[key]}"
+             inputmode="decimal">
+      <input type="range" id="r_${key}"
+             min="${d.min}" max="${d.max}" step="${d.step}" value="${T[key]}">`;
     paneTuners.appendChild(row);
-    const num=row.querySelector(".num");
-    const rng=row.querySelector("input[type=range]");
-    const commit=(v,from)=>{
-      v=clamp(v,d.min,d.max);T[key]=v;
-      if(from!=="num")num.value=v;
-      if(from!=="rng")rng.value=v;
-      saveCfg();refreshJson();
+    const num = row.querySelector(".num");
+    const rng = row.querySelector("input[type=range]");
+    const commit = (v, from) => {
+      v = clamp(v, d.min, d.max);
+      T[key] = v;
+      if (from !== "num") num.value = v;
+      if (from !== "rng") rng.value = v;
+      saveCfg(); refreshJson();
     };
-    num.addEventListener("input",()=>commit(parseFloat(num.value)||d.d,"num"));
-    rng.addEventListener("input",()=>commit(parseFloat(rng.value),"rng"));
+    num.addEventListener("input", () => commit(parseFloat(num.value) || d.d, "num"));
+    rng.addEventListener("input", () => commit(parseFloat(rng.value), "rng"));
   });
 }
 
 function getJSON(){
-  return JSON.stringify({app:"dex-hand-cursor",version:6,
-    savedAt:new Date().toISOString(),config:{...T},
-    calibration:cal.raw.length===4?{raw:cal.raw,scr:cal.scr}:null},null,2);
+  return JSON.stringify({
+    app: "dex-hand-cursor",
+    version: 7,
+    savedAt: new Date().toISOString(),
+    config: { ...T },
+    calibration: cal.raw.length === 4 ? { raw: cal.raw, scr: cal.scr } : null,
+  }, null, 2);
 }
-let jsonDirty=false;
-function refreshJson(){if(!jsonDirty)jsonArea.value=getJSON()}
-jsonArea.addEventListener("input",()=>jsonDirty=true);
+let jsonDirty = false;
+function refreshJson(){ if (!jsonDirty) jsonArea.value = getJSON(); }
+jsonArea.addEventListener("input", () => { jsonDirty = true; });
 
 function applyJson(){
-  try{
-    const p=JSON.parse(jsonArea.value);
-    const c=p.config||p;
-    Object.keys(TUNER_DEFS).forEach(k=>{if(k in c)T[k]=c[k]});
-    if(p.calibration&&p.calibration.raw&&p.calibration.raw.length===4){
-      cal.raw=p.calibration.raw;cal.scr=p.calibration.scr;
-      cal.M=buildAffine(cal.raw,cal.scr);saveCal();calState.textContent="saved";
+  try {
+    const p = JSON.parse(jsonArea.value);
+    const c = p.config || p;
+    Object.keys(TUNER_DEFS).forEach(k => { if (k in c) T[k] = c[k]; });
+    if (p.calibration && p.calibration.raw && p.calibration.raw.length === 4){
+      cal.raw = p.calibration.raw;
+      cal.scr = p.calibration.scr;
+      cal.M = buildAffine(cal.raw, cal.scr);
+      saveCal();
+      calState.textContent = "saved";
     }
-    buildTuner();saveCfg();jsonDirty=false;refreshJson();
+    buildTuner(); saveCfg(); jsonDirty = false; refreshJson();
     showToast("Config applied");
-  }catch(e){showToast("Invalid JSON");console.error(e)}
+  } catch(_){ showToast("Invalid JSON"); }
 }
-document.getElementById("copyJson").addEventListener("click",()=>{
-  const t=getJSON();
+document.getElementById("copyJson").addEventListener("click", () => {
+  const t = getJSON();
   navigator.clipboard.writeText(t).then(
-    ()=>showToast("Config copied"),
-    ()=>{jsonArea.select();document.execCommand("copy");showToast("Copied")});
+    () => showToast("Copied"),
+    () => { jsonArea.select(); document.execCommand("copy"); showToast("Copied"); }
+  );
 });
-document.getElementById("applyJson").addEventListener("click",applyJson);
-document.getElementById("resetTuner").addEventListener("click",()=>{
-  Object.keys(TUNER_DEFS).forEach(k=>T[k]=TUNER_DEFS[k].d);
-  buildTuner();saveCfg();jsonDirty=false;refreshJson();showToast("Reset");
+document.getElementById("applyJson").addEventListener("click", applyJson);
+document.getElementById("resetTuner").addEventListener("click", () => {
+  Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].d; });
+  buildTuner(); saveCfg(); jsonDirty = false; refreshJson();
+  showToast("Reset");
 });
-document.getElementById("tunerToggle").addEventListener("click",()=>{
+document.getElementById("tunerToggle").addEventListener("click", () => {
   document.getElementById("tuner").classList.toggle("collapsed");
 });
-document.getElementById("recalBtn").addEventListener("click",()=>{
-  if(!cal.active)calStart();
+document.getElementById("recalBtn").addEventListener("click", () => {
+  if (!cal.active) calStart();
 });
-tabTuners.addEventListener("click",()=>{
-  tabTuners.classList.add("active");tabJson.classList.remove("active");
-  paneTuners.classList.remove("hidden");paneJson.classList.add("hidden");
+tabTuners.addEventListener("click", () => {
+  tabTuners.classList.add("active"); tabJson.classList.remove("active");
+  paneTuners.classList.remove("hidden"); paneJson.classList.add("hidden");
 });
-tabJson.addEventListener("click",()=>{
-  tabJson.classList.add("active");tabTuners.classList.remove("active");
-  paneJson.classList.remove("hidden");paneTuners.classList.add("hidden");
-  jsonDirty=false;refreshJson();
+tabJson.addEventListener("click", () => {
+  tabJson.classList.add("active"); tabTuners.classList.remove("active");
+  paneJson.classList.remove("hidden"); paneTuners.classList.add("hidden");
+  jsonDirty = false; refreshJson();
 });
-buildTuner();refreshJson();
 
-/* boot */
-startCamera();
-setTimeout(()=>{
-  if(!cal.M){calState.textContent="needed";calStart()}
-  else{calState.textContent="saved"}
-},1400);
+buildTuner();
+refreshJson();
 
-addEventListener("keydown",e=>{
-  if(e.key==="Escape"&&!cal.active){
-    document.body.style.cursor=
-      document.body.style.cursor==="none"?"default":"none";
+/* ═══════════ Camera ═══════════ */
+async function startCamera(){
+  try {
+    pillText.textContent = "Requesting camera…";
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width:  { ideal: 960 },
+        height: { ideal: 540 },
+        frameRate: { ideal: 60, min: 24 },
+        facingMode: "user",
+      },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await new Promise(r => {
+      if (video.readyState >= 1) return r();
+      video.onloadedmetadata = r;
+    });
+    await video.play();
+    const st = stream.getVideoTracks()[0].getSettings();
+    pillText.textContent = `Camera · ${st.width}×${st.height}@${Math.round(st.frameRate||30)}`;
+    startFrameLoop();
+  } catch(err){
+    console.error(err);
+    pillText.textContent = "Camera blocked";
   }
-  if(e.key.toLowerCase()==="r"&&!e.ctrlKey&&!e.metaKey&&!cal.active)calStart();
+}
+startCamera();
+
+/* ═══════════ Boot calibration ═══════════ */
+setTimeout(() => {
+  if (!cal.M){
+    calState.textContent = "needed";
+    calStart();
+  } else {
+    calState.textContent = "saved";
+  }
+}, 1400);
+
+/* ═══════════ Keyboard ═══════════ */
+addEventListener("keydown", e => {
+  if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey && !cal.active){
+    calStart();
+  }
 });
-addEventListener("resize",()=>{if(cal.active)calRenderStep()});
+addEventListener("resize", () => { if (cal.active) renderCalStep(); });
+
+/* ═══════════ Kick off render loop ═══════════ */
+requestAnimationFrame(loop);
 
 })();
 </script>
 </body>
-</html>
+          </html>
