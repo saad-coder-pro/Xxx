@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>DeX Hand Cursor · SVG</title>
+<title>DeX Hand Cursor · Self-Tuning</title>
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -32,10 +32,6 @@
   #video{position:fixed;left:-10000px;top:0;width:640px;height:480px;
     opacity:0;pointer-events:none}
 
-  /* ═════════ SVG cursor ═════════
-     Tip is at SVG (0,0) → pixel (4,2) inside 24×27 box.
-     The render loop offsets transform by (-4,-2).
-     contain:strict + GPU layer = painted once, moved cheaply. */
   #cursor{
     position:fixed;left:0;top:0;
     width:24px;height:27px;
@@ -45,52 +41,35 @@
     transition:opacity .1s;
     contain:strict;
     transform:translate3d(0,0,0);
-    backface-visibility:hidden;
-    -webkit-backface-visibility:hidden;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
     will-change:transform,opacity;
   }
   #cursor.visible{opacity:1}
-  #cursor svg{
-    display:block;width:100%;height:100%;overflow:visible;
-    shape-rendering:geometricPrecision;
-    pointer-events:none;
-  }
-  #cursor path{
-    fill:#ffffff;
-    stroke:none;
-    shape-rendering:geometricPrecision;
-    pointer-events:none;
-  }
+  #cursor svg{display:block;width:100%;height:100%;overflow:visible;
+    shape-rendering:geometricPrecision;pointer-events:none}
+  #cursor path{fill:#ffffff;stroke:none;
+    shape-rendering:geometricPrecision;pointer-events:none}
 
-  .cal-overlay{
-    position:fixed;inset:0;z-index:2147483646;
+  .cal-overlay{position:fixed;inset:0;z-index:2147483646;
     background:rgba(4,6,10,.96);display:none;flex-direction:column;
-    align-items:center;justify-content:center;padding:20px;touch-action:none;
-  }
+    align-items:center;justify-content:center;padding:20px;touch-action:none}
   .cal-overlay.active{display:flex}
-  .cal-panel{
-    position:absolute;top:0;left:0;right:0;padding:24px 20px;
+  .cal-panel{position:absolute;top:0;left:0;right:0;padding:24px 20px;
     display:flex;flex-direction:column;align-items:center;gap:10px;
-    pointer-events:none;text-align:center;
-  }
-  .cal-panel h2{
-    font-size:22px;font-weight:700;letter-spacing:.4px;
+    pointer-events:none;text-align:center}
+  .cal-panel h2{font-size:22px;font-weight:700;letter-spacing:.4px;
     background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
-    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-  }
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   .cal-panel .cal-sub{font-size:13px;color:var(--muted);max-width:560px;line-height:1.65}
   .cal-panel .cal-sub b{color:#c8d2e6}
   .cal-status{display:flex;gap:10px;align-items:center;margin-top:6px;
     flex-wrap:wrap;justify-content:center}
-  .cal-badge{
-    display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+  .cal-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
     border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.6px;
     text-transform:uppercase;background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.1);color:var(--muted);
-  }
+    border:1px solid rgba(255,255,255,.1);color:var(--muted)}
   .cal-badge.ok{background:rgba(34,224,122,.12);border-color:rgba(34,224,122,.5);color:var(--green)}
   .cal-badge.warn{background:rgba(255,80,120,.12);border-color:rgba(255,80,120,.5);color:var(--pink)}
-
   .cal-target{position:absolute;width:80px;height:80px;transform:translate(-50%,-50%);
     pointer-events:none}
   .cal-target .ring{position:absolute;inset:0;border-radius:50%;
@@ -133,7 +112,7 @@
     background:rgba(12,16,24,.88);backdrop-filter:blur(14px);
     -webkit-backdrop-filter:blur(14px);
     border:1px solid rgba(255,255,255,.09);border-radius:16px;
-    padding:14px 16px;width:290px;pointer-events:none;font-size:12px;
+    padding:14px 16px;width:320px;pointer-events:none;font-size:12px;
     display:flex;flex-direction:column;gap:10px;max-width:calc(100vw - 24px)}
   .panel h1{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;
     background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
@@ -147,12 +126,126 @@
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
     background:#3a4258;margin-right:5px;vertical-align:middle}
   .dot.on{background:var(--green);box-shadow:0 0 8px rgba(34,224,122,.8)}
+  .dot.ai{background:var(--purple);box-shadow:0 0 10px var(--purple);
+    animation:aiPulse 1.6s ease-in-out infinite}
+  @keyframes aiPulse{0%,100%{opacity:1}50%{opacity:.5}}
   .panel .hint{font-size:10.5px;color:var(--muted);line-height:1.6}
   .panel .hint b{color:#c8d2e6;font-weight:600}
   .panel .hint i{color:var(--cyan);width:13px;text-align:center;margin-right:3px}
   .panel .hint kbd{background:rgba(255,255,255,.08);
     border:1px solid rgba(255,255,255,.14);border-radius:4px;
     padding:0 5px;font-family:inherit;font-size:10px}
+
+  /* ═════════ AI AUTOTUNER PANEL ═════════ */
+  .ai-panel{
+    background:linear-gradient(135deg,
+      rgba(168,85,247,.10),rgba(0,230,255,.05));
+    border:1px solid rgba(168,85,247,.28);
+    border-radius:12px;
+    padding:10px 12px;
+    display:flex;flex-direction:column;gap:8px;
+    position:relative;
+    overflow:hidden;
+  }
+  .ai-panel::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(circle at 0% 0%,
+      rgba(168,85,247,.20),transparent 60%);
+    pointer-events:none;opacity:.6;
+    animation:aiGlow 4s ease-in-out infinite;
+  }
+  @keyframes aiGlow{0%,100%{opacity:.4}50%{opacity:.85}}
+
+  .ai-head{
+    display:flex;align-items:center;justify-content:space-between;
+    position:relative;z-index:1;
+  }
+  .ai-title{
+    display:flex;align-items:center;gap:7px;
+    font-size:10.5px;font-weight:800;letter-spacing:1.1px;
+    text-transform:uppercase;color:var(--purple);
+  }
+  .ai-title i{font-size:11px}
+  .ai-toggle{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 8px;border-radius:999px;
+    font-size:9.5px;font-weight:800;letter-spacing:.6px;
+    text-transform:uppercase;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.10);
+    color:var(--muted);
+    cursor:pointer;pointer-events:auto;
+    transition:background .15s,color .15s,border-color .15s;
+    user-select:none;
+  }
+  .ai-toggle.on{
+    background:rgba(34,224,122,.16);
+    border-color:rgba(34,224,122,.5);
+    color:var(--green);
+  }
+  .ai-toggle i{font-size:9px}
+
+  .ai-metrics{
+    display:grid;grid-template-columns:1fr 1fr 1fr;
+    gap:5px;position:relative;z-index:1;
+  }
+  .ai-metric{
+    padding:6px 7px;border-radius:7px;
+    background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.05);
+    display:flex;flex-direction:column;gap:1px;
+    font-size:9.5px;
+  }
+  .ai-metric .lbl{
+    font-size:8.5px;letter-spacing:.7px;text-transform:uppercase;
+    color:var(--muted);font-weight:700;
+  }
+  .ai-metric .val{
+    font-family:ui-monospace,monospace;
+    font-size:12px;font-weight:800;
+    color:var(--text);
+    line-height:1.1;
+  }
+  .ai-metric .val.good{color:var(--green)}
+  .ai-metric .val.warn{color:var(--gold)}
+  .ai-metric .val.bad{color:var(--pink)}
+
+  .ai-log{
+    font-family:ui-monospace,monospace;
+    font-size:9.5px;line-height:1.5;
+    color:var(--muted);
+    background:rgba(0,0,0,.4);
+    border-radius:7px;
+    padding:6px 8px;
+    max-height:72px;
+    overflow:hidden;
+    position:relative;z-index:1;
+    letter-spacing:.2px;
+  }
+  .ai-log .entry{display:block}
+  .ai-log .entry.ok{color:var(--green)}
+  .ai-log .entry.warn{color:var(--gold)}
+  .ai-log .entry.adjust{color:var(--purple)}
+
+  /* Slider knob locked state */
+  .tuner-row input[type=range].locked::-webkit-slider-thumb{
+    background:var(--purple);
+    box-shadow:0 0 0 2px rgba(168,85,247,.5);
+  }
+  .tuner-row input[type=range].locked::-moz-range-thumb{
+    background:var(--purple);
+  }
+  .tuner-row label .lock-badge{
+    display:inline-block;
+    margin-left:5px;padding:0 5px;
+    font-size:8.5px;font-weight:800;letter-spacing:.6px;
+    text-transform:uppercase;
+    border-radius:4px;
+    background:rgba(168,85,247,.18);
+    color:var(--purple);
+    border:1px solid rgba(168,85,247,.4);
+    vertical-align:middle;
+  }
 
   .tuner{position:fixed;top:12px;right:12px;z-index:150;width:340px;
     max-height:calc(100vh - 24px);background:rgba(12,16,24,.94);
@@ -200,9 +293,7 @@
     height:6px;border-radius:999px;background:rgba(255,255,255,.09)}
   .tuner-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
     width:24px;height:24px;border-radius:50%;background:#fff;
-    border:2px solid #0b0e14;margin-top:-9px}
-  .tuner-row input[type=range]::-moz-range-track{
-    height:6px;border-radius:999px;background:rgba(255,255,255,.09)}
+    border:2px solid #0b0e14;margin-top:-9px;transition:background .15s}
   .tuner-row input[type=range]::-moz-range-thumb{
     width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid #0b0e14}
   .tuner-row select{grid-column:1/-1;min-height:38px;background:rgba(255,255,255,.05);
@@ -250,19 +341,14 @@
   h2.section::after{content:'';flex:1;height:1px;
     background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
 
-  .colour-strip{
-    display:grid;grid-template-columns:repeat(6,1fr);
+  .colour-strip{display:grid;grid-template-columns:repeat(6,1fr);
     gap:0;border-radius:16px;overflow:hidden;
-    border:1px solid rgba(255,255,255,.08);
-    margin-bottom:20px;
-  }
+    border:1px solid rgba(255,255,255,.08);margin-bottom:20px}
   @media (max-width:700px){.colour-strip{grid-template-columns:repeat(3,1fr)}}
-  .colour-strip div{
-    aspect-ratio:1/1;
+  .colour-strip div{aspect-ratio:1/1;
     display:flex;align-items:center;justify-content:center;
     font-size:10px;font-weight:700;letter-spacing:.5px;
-    text-transform:uppercase;user-select:none;
-  }
+    text-transform:uppercase;user-select:none}
 
   .target-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
   @media (max-width:800px){.target-grid{grid-template-columns:repeat(2,1fr)}}
@@ -303,9 +389,6 @@
 </head>
 <body>
 
-<!-- ═════════ SVG CURSOR ═════════
-     Tip at path coord (0,0) → pixel (4,2) inside 24×27 box.
-     Loop offsets transform by (-4,-2) so tip lands on the click point. -->
 <div id="cursor" aria-hidden="true">
   <svg viewBox="-20 -10 120 135" xmlns="http://www.w3.org/2000/svg">
     <path id="cursorPath"
@@ -369,13 +452,44 @@
     <div class="v" id="actionState">Idle</div>
     <div class="k">Runtime</div>
     <div class="v" id="workerState">booting…</div>
-    <div class="k">Pipeline</div>
-    <div class="v" id="pipelineState">—</div>
     <div class="k">FPS</div>
     <div class="v" id="fpsState">—</div>
     <div class="k">Cursor colour</div>
     <div class="v" id="colorState">white</div>
   </div>
+
+  <!-- ═════ AI AUTOTUNER ═════ -->
+  <div class="ai-panel">
+    <div class="ai-head">
+      <div class="ai-title">
+        <i class="fa-solid fa-brain"></i> Auto-tuner AI
+      </div>
+      <div class="ai-toggle on" id="aiToggle">
+        <i class="fa-solid fa-circle-play" id="aiToggleIcon"></i>
+        <span id="aiToggleLabel">On</span>
+      </div>
+    </div>
+
+    <div class="ai-metrics">
+      <div class="ai-metric">
+        <div class="lbl">Jitter</div>
+        <div class="val good" id="aiJitter">0.0</div>
+      </div>
+      <div class="ai-metric">
+        <div class="lbl">Lag</div>
+        <div class="val good" id="aiLag">0</div>
+      </div>
+      <div class="ai-metric">
+        <div class="lbl">Over</div>
+        <div class="val good" id="aiOver">0</div>
+      </div>
+    </div>
+
+    <div class="ai-log" id="aiLog">
+      <span class="entry ok">AI ready — observing…</span>
+    </div>
+  </div>
+
   <div class="hint">
     <i class="fa-solid fa-arrow-pointer"></i><b>Index</b> → move<br>
     <i class="fa-solid fa-hand-point-up"></i><b>Pinch thumb+index</b> → click<br>
@@ -384,7 +498,7 @@
     <i class="fa-solid fa-hand-peace"></i><b>Peace</b> → scroll
   </div>
   <div class="hint" style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;">
-    <kbd>R</kbd> recalibrate
+    <kbd>R</kbd> recalibrate &nbsp;<kbd>A</kbd> toggle auto-tune
   </div>
 </div>
 
@@ -419,36 +533,20 @@
 <div class="toast" id="toast"></div>
 
 <main>
-  <h2 class="section">Cursor colour test — sweep across</h2>
-  <div class="colour-strip">
-    <div style="background:#000000;color:#fff">Black</div>
-    <div style="background:#1a1a1a;color:#fff">Dark</div>
-    <div style="background:#555555;color:#fff">Mid</div>
-    <div style="background:#aaaaaa;color:#000">Light</div>
-    <div style="background:#e8e8e8;color:#000">Near white</div>
-    <div style="background:#ffffff;color:#000">White</div>
-  </div>
-  <p style="font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:30px">
-    Cursor flips between <b style="color:#fff">white</b> and
-    <b style="color:#000;background:#fff;padding:0 4px;border-radius:3px">black</b>
-    at the 50 % luminance line. Only 2 colours — never grey.
-  </p>
-
   <h2 class="section">Selectable Text</h2>
   <div class="text-block">
-    <h3>Performance notes</h3>
+    <h3>Self-tuning cursor</h3>
     <p>
-      The colour sampler now runs on its own <code>setInterval</code> at ~6 Hz, with a
-      <code>WeakMap</code> cache keyed by the element under the cursor. If the element
-      hasn't changed since the last sample, we skip everything — no
-      <code>getComputedStyle</code>, no forced reflow, no work. That's what restores
-      the frame rate: the RAF loop only does LERP + a single
-      <code>style.transform</code> write.
+      The <b>Auto-tuner AI</b> watches your cursor in real time. Every 500 ms it computes
+      three scores — <b>jitter</b> (RMS of sub-pixel movement when your hand is nearly still),
+      <b>lag</b> (time for the cursor to catch up when you stop), and <b>overshoot</b>
+      (how far past the target the cursor lands after a fast move). Every 3 s it nudges
+      one parameter toward the target zone.
     </p>
     <p>
-      The cursor SVG has <code>contain:strict</code> and its own compositor layer
-      (<code>translate3d</code> + <code>will-change</code>), so moving it never
-      re-rasterises the path or invalidates layout for the rest of the page.
+      Move a slider manually and that parameter becomes <b>locked</b> — the AI stops
+      touching it and shows a purple "locked" badge next to its label. Tap <b>Reset</b>
+      to release all locks and let the AI start fresh.
     </p>
   </div>
 
@@ -590,7 +688,6 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   const handState     = document.getElementById("handState");
   const actionState   = document.getElementById("actionState");
   const workerState   = document.getElementById("workerState");
-  const pipelineState = document.getElementById("pipelineState");
   const fpsState      = document.getElementById("fpsState");
   const colorState    = document.getElementById("colorState");
   const calState      = document.getElementById("calState");
@@ -611,11 +708,18 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   const calCancel     = document.getElementById("calCancel");
   const calProgress   = document.getElementById("calProgress");
 
-  /* Cursor tip offset: SVG (0,0) → pixel (4,2) in 24×27 box */
+  const aiToggle      = document.getElementById("aiToggle");
+  const aiToggleIcon  = document.getElementById("aiToggleIcon");
+  const aiToggleLabel = document.getElementById("aiToggleLabel");
+  const aiJitterEl    = document.getElementById("aiJitter");
+  const aiLagEl       = document.getElementById("aiLag");
+  const aiOverEl      = document.getElementById("aiOver");
+  const aiLogEl       = document.getElementById("aiLog");
+
   const TIP_OFF_X = 4;
   const TIP_OFF_Y = 2;
 
-  /* ═════════ Tuner ═════════ */
+  /* ═════════ Tuner defs ═════════ */
   const TUNER_DEFS = {
     lerpMin:      {g:"Smoothing", l:"Min LERP factor",    min:0.05,max:0.60,step:0.01, d:0.20},
     lerpSpeed:    {g:"Smoothing", l:"Speed LERP gain",    min:0,   max:0.05,step:0.001,d:0.010},
@@ -638,8 +742,12 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     momentumDecay:{g:"Momentum",  l:"Decay per frame",    min:0.85,max:0.99,step:0.005,d:0.94},
   };
 
-  const CFG_KEY = "dex_svg_cfg_v2";
-  const CAL_KEY = "dex_svg_cal_v2";
+  /* Which parameters the AI is allowed to move */
+  const AI_CONTROLLED = ["lerpMin", "lerpSpeed", "predictMs", "deadPx"];
+
+  const CFG_KEY = "dex_svg_cfg_v3";
+  const CAL_KEY = "dex_svg_cal_v3";
+  const LOCK_KEY = "dex_svg_locks_v1";
 
   const T = {};
   Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].d; });
@@ -651,6 +759,14 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     }
   } catch (_) {}
   const saveCfg = () => { try { localStorage.setItem(CFG_KEY, JSON.stringify(T)); } catch (_) {} };
+
+  /* Locks — parameters the user has hand-tuned; AI won't touch these */
+  const locked = new Set();
+  try {
+    const r = localStorage.getItem(LOCK_KEY);
+    if (r) JSON.parse(r).forEach(k => locked.add(k));
+  } catch (_) {}
+  const saveLocks = () => { try { localStorage.setItem(LOCK_KEY, JSON.stringify([...locked])); } catch (_) {} };
 
   /* ═════════ Helpers ═════════ */
   const clamp01 = v => Math.max(0, Math.min(1, v));
@@ -678,10 +794,9 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   }
   function handAngle(lm) { return Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x); }
 
-  /* ═════════ Cursor colour — off the RAF loop, cached ═════════ */
+  /* ═════════ Cursor colour sampling ═════════ */
   const WHITE = "#ffffff";
   const BLACK = "#000000";
-
   let currentCursorColor = WHITE;
   let pendingColor = WHITE;
   let pendingColorCount = 0;
@@ -696,7 +811,6 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     while (node && node.nodeType === 1 && node !== document.documentElement) {
       const cached = lumCache.get(node);
       if (cached && now - cached.t < 2000) return cached.lum;
-
       const bg = getComputedStyle(node).backgroundColor;
       const m = bg.match(_rgbRe);
       if (m) {
@@ -718,15 +832,12 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   }
 
   let lastColorEl = null;
-
   function sampleCursorColor() {
     const el = document.elementFromPoint(cursor.x, cursor.y);
     if (el === lastColorEl) return;
     lastColorEl = el;
-
     const lum = elementLuminance(el);
     const desired = lum > 0.5 ? BLACK : WHITE;
-
     if (desired === currentCursorColor) { pendingColorCount = 0; return; }
     if (desired !== pendingColor) { pendingColor = desired; pendingColorCount = 1; return; }
     pendingColorCount++;
@@ -737,8 +848,6 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       pendingColorCount = 0;
     }
   }
-
-  /* 6 Hz — plenty for background colour, cheap */
   setInterval(sampleCursorColor, 160);
 
   /* ═════════ Affine calibration ═════════ */
@@ -806,7 +915,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   const sel        = { active: false, anchorNode: null, anchorOffset: 0 };
   const scrollState= { lastY: null, lastScale: null, velocity: 0, momentum: 0, active: false };
 
-  /* ═════════ Mouse synthesis ═════════ */
+  /* ═════════ Mouse synth ═════════ */
   function fireMouse(type, x, y, buttons) {
     const el = document.elementFromPoint(x, y) || document.body;
     el.dispatchEvent(new MouseEvent(type, {
@@ -824,7 +933,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     }));
   }
 
-  /* ═════════ Toast / labels ═════════ */
+  /* ═════════ Toast ═════════ */
   let toastTimer = null;
   function showToast(html, ms = 1400) {
     toastEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>' + html;
@@ -842,39 +951,32 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       const p = document.caretPositionFromPoint(x, y);
       if (!p) return null;
       const r = document.createRange();
-      r.setStart(p.offsetNode, p.offset);
-      r.collapse(true);
-      return r;
+      r.setStart(p.offsetNode, p.offset); r.collapse(true); return r;
     }
     return null;
   }
   function beginSelection(x, y) {
     const r = caretAt(x, y); if (!r) return false;
-    sel.active = true;
-    sel.anchorNode = r.startContainer;
-    sel.anchorOffset = r.startOffset;
+    sel.active = true; sel.anchorNode = r.startContainer; sel.anchorOffset = r.startOffset;
     const s = window.getSelection(); s.removeAllRanges();
     const rr = document.createRange();
     try { rr.setStart(r.startContainer, r.startOffset); rr.collapse(true); s.addRange(rr); } catch (_) {}
-    setAction("Selecting");
-    return true;
+    setAction("Selecting"); return true;
   }
   function extendSelection(x, y) {
     if (!sel.active) return;
     const r = caretAt(x, y); if (!r) return;
     const rr = document.createRange();
-    try {
-      rr.setStart(sel.anchorNode, sel.anchorOffset);
-      rr.setEnd(r.startContainer, r.startOffset);
-    } catch (_) {
+    try { rr.setStart(sel.anchorNode, sel.anchorOffset);
+          rr.setEnd(r.startContainer, r.startOffset); }
+    catch (_) {
       try { rr.setStart(r.startContainer, r.startOffset);
             rr.setEnd(sel.anchorNode, sel.anchorOffset); } catch (_) { return; }
     }
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(rr);
   }
   function endSelection() {
-    sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0;
-    setAction("Move");
+    sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0; setAction("Move");
   }
   function clearSelection() {
     const s = window.getSelection(); if (s) s.removeAllRanges();
@@ -883,8 +985,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
 
   /* ═════════ Click / drag ═════════ */
   function pinchDown(x, y) {
-    clickPinch.active = true;
-    clickPinch.startTime = performance.now();
+    clickPinch.active = true; clickPinch.startTime = performance.now();
     if (sel.active) clearSelection();
     else if (window.getSelection && window.getSelection().rangeCount > 0)
       window.getSelection().removeAllRanges();
@@ -899,7 +1000,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     clearTimeout(clickPinch.holdTimer);
     const held = performance.now() - clickPinch.startTime;
     const now = performance.now();
-    if (sel.active) { endSelection(); }
+    if (sel.active) endSelection();
     else if (held <= T.clickMaxMs && now >= clickPinch.cooldownUntil) {
       fireMouse("mousedown", x, y, 1);
       fireMouse("mouseup",   x, y, 0);
@@ -925,8 +1026,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       dragPinch.offX = x - r.left; dragPinch.offY = y - r.top;
       g.classList.add("dragging");
     } else dragPinch.el = null;
-    fireMouse("mousedown", x, y, 1);
-    fireDoc("mousedown", x, y, 1);
+    fireMouse("mousedown", x, y, 1); fireDoc("mousedown", x, y, 1);
     setAction("Drag");
   }
   function dragMove(x, y) {
@@ -940,8 +1040,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   function dragEnd(x, y) {
     if (!dragPinch.active) return;
     if (dragPinch.el) { dragPinch.el.classList.remove("dragging"); dragPinch.el = null; }
-    fireMouse("mouseup", x, y, 0);
-    fireDoc("mouseup", x, y, 0);
+    fireMouse("mouseup", x, y, 0); fireDoc("mouseup", x, y, 0);
     dragPinch.active = false; dragPinch.confirm = 0; dragPinch.release = 0;
     setAction("Move");
   }
@@ -1067,7 +1166,369 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
     else onScrollEnd();
   }
 
-  /* ═════════ Main RAF loop — LERP only ═════════ */
+  /* ═══════════════════════════════════════════════
+     PERF MONITOR — collects cursor quality metrics
+     ═══════════════════════════════════════════════ */
+  const PerfMonitor = (() => {
+    /* Ring buffers of cursor samples */
+    const RING_SIZE = 240;
+    const positions = [];        // {x, y, t}
+    const targetsBuf = [];       // {x, y, t}
+    let posIdx = 0, tgtIdx = 0;
+
+    /* Aggregate metrics — EMA smoothed */
+    let jitter = 0;              // px RMS when still
+    let lag = 0;                 // ms to reach target after motion stops
+    let overshoot = 0;           // px beyond target after fast moves
+    let fps = 60;
+
+    let lastSampleT = 0;
+    let stillStartT = 0;
+    let wasMoving = false;
+    let lastTargetChangeT = 0;
+    let lastTargetPos = { x: -1, y: -1 };
+    let peakAfterStop = 0;
+    let motionEnvelope = 0;
+
+    function pushCursor(x, y, t) {
+      positions[posIdx] = { x, y, t };
+      posIdx = (posIdx + 1) % RING_SIZE;
+    }
+    function pushTarget(x, y, t) {
+      targetsBuf[tgtIdx] = { x, y, t };
+      tgtIdx = (tgtIdx + 1) % RING_SIZE;
+    }
+
+    /* Called every RAF frame */
+    function tick(cx, cy, tx, ty, now) {
+      /* 1. Detect target changes (hand still moving) */
+      const tdx = tx - lastTargetPos.x;
+      const tdy = ty - lastTargetPos.y;
+      const targetMoving = Math.hypot(tdx, tdy) > 0.8;
+      if (targetMoving) { lastTargetChangeT = now; motionEnvelope = 1; }
+      lastTargetPos = { x: tx, y: ty };
+
+      /* 2. Record the cursor sample */
+      pushCursor(cx, cy, now);
+      pushTarget(tx, ty, now);
+
+      /* 3. Detect stillness on the TARGET (hand held still) */
+      const handStill = (now - lastTargetChangeT) > 120;
+
+      /* 4. Jitter: RMS of consecutive cursor deltas while the hand is still */
+      if (handStill && positions.length > 10) {
+        let sumSq = 0, n = 0;
+        for (let i = 1; i < Math.min(10, positions.length); i++) {
+          const a = positions[(posIdx - 1 - i + RING_SIZE) % RING_SIZE];
+          const b = positions[(posIdx - 2 - i + RING_SIZE) % RING_SIZE];
+          if (!a || !b) continue;
+          const dx = a.x - b.x, dy = a.y - b.y;
+          sumSq += dx * dx + dy * dy;
+          n++;
+        }
+        if (n > 0) {
+          const inst = Math.sqrt(sumSq / n);
+          jitter = jitter * 0.85 + inst * 0.15;
+        }
+      } else {
+        jitter *= 0.9;    // decay when not still
+      }
+
+      /* 5. Lag: how long the cursor takes to get within 2px of the target
+            after the hand stops.  Measured on falling edge of motion. */
+      if (wasMoving && handStill) {
+        stillStartT = now;
+        peakAfterStop = 0;
+      }
+      if (handStill && stillStartT > 0) {
+        const d = Math.hypot(cx - tx, cy - ty);
+        if (d < 2 && lag === 0) {
+          const measured = now - stillStartT;
+          if (measured < 500) lag = lag * 0.7 + measured * 0.3;
+          stillStartT = 0;
+        }
+        if (d > peakAfterStop) peakAfterStop = d;
+      }
+      wasMoving = !handStill;
+
+      /* 6. Overshoot: peak distance past the target after a stop */
+      if (peakAfterStop > 0) {
+        overshoot = overshoot * 0.9 + peakAfterStop * 0.1;
+      } else {
+        overshoot *= 0.95;
+      }
+    }
+
+    /* Called once per second from main loop */
+    function setFps(f) {
+      fps = fps * 0.6 + f * 0.4;
+    }
+
+    function snapshot() {
+      return {
+        jitter:   Math.max(0, jitter),
+        lag:      Math.max(0, lag),
+        overshoot: Math.max(0, overshoot),
+        fps,
+      };
+    }
+
+    function reset() {
+      positions.length = 0; targetsBuf.length = 0;
+      posIdx = 0; tgtIdx = 0;
+      jitter = 0; lag = 0; overshoot = 0;
+      stillStartT = 0; lastTargetChangeT = performance.now();
+      wasMoving = false; peakAfterStop = 0;
+    }
+
+    return { tick, setFps, snapshot, reset };
+  })();
+
+  /* ═══════════════════════════════════════════════
+     AUTO-TUNER AI
+     ═══════════════════════════════════════════════ */
+  const AutoTuner = (() => {
+    let enabled = true;
+    let lastAdjustT = 0;
+    let consecutiveGoodFrames = 0;
+
+    /* Target thresholds — cursor is "well tuned" when all three are met */
+    const TARGET_JITTER   = 0.5;    // px
+    const TARGET_LAG      = 100;    // ms
+    const TARGET_OVER     = 4;      // px
+    const MIN_FPS         = 45;
+
+    /* Step sizes — small so we never overshoot the sweet spot */
+    const STEPS = {
+      lerpMin:      0.025,
+      lerpSpeed:    0.0015,
+      predictMs:    6,
+      deadPx:       0.3,
+    };
+
+    /* Absolute clamps so the AI can't push to nonsense */
+    const CLAMP = {
+      lerpMin:   [0.08, 0.55],
+      lerpSpeed: [0.002, 0.040],
+      predictMs: [0, 180],
+      deadPx:    [0, 6],
+    };
+
+    /* Remember the last adjustment so we can detect oscillation */
+    let lastMoved = null;
+    let oscillationGuard = 0;
+
+    function applyChange(key, delta, reason) {
+      const def = TUNER_DEFS[key];
+      if (!def) return false;
+      const [lo, hi] = CLAMP[key] || [def.min, def.max];
+      const before = T[key];
+      const after = clamp(before + delta, Math.max(lo, def.min), Math.min(hi, def.max));
+      if (Math.abs(after - before) < 1e-6) return false;
+      T[key] = after;
+      saveCfg();
+      syncTunerRow(key);
+      log("adjust", `${key}: ${before.toFixed(3)} → ${after.toFixed(3)} (${reason})`);
+      return true;
+    }
+
+    /* Reverse direction detection — flips twice in a row = oscillation */
+    function trackOscillation(key, dir) {
+      const signed = { key, dir };
+      if (lastMoved && lastMoved.key === key && lastMoved.dir === -dir) {
+        oscillationGuard++;
+        if (oscillationGuard > 2) {
+          log("warn", `oscillation on ${key} — locking`);
+          lockParam(key);
+          return true;
+        }
+      } else {
+        oscillationGuard = Math.max(0, oscillationGuard - 1);
+      }
+      lastMoved = signed;
+      return false;
+    }
+
+    function evaluate(perf) {
+      if (!enabled) return;
+      const now = performance.now();
+      if (now - lastAdjustT < 3000) return;     // rate limit
+      lastAdjustT = now;
+
+      const { jitter, lag, overshoot, fps } = perf;
+
+      /* Are we already good? */
+      const goodJitter = jitter < TARGET_JITTER;
+      const goodLag    = lag < TARGET_LAG;
+      const goodOver   = overshoot < TARGET_OVER;
+
+      if (goodJitter && goodLag && goodOver) {
+        consecutiveGoodFrames++;
+        if (consecutiveGoodFrames === 3) {
+          log("ok", `tuned — jitter ${jitter.toFixed(2)}px · lag ${lag|0}ms · over ${overshoot.toFixed(1)}px`);
+          consecutiveGoodFrames = 0;
+        }
+        return;
+      }
+      consecutiveGoodFrames = 0;
+
+      /* Low FPS first — nothing else matters */
+      if (fps < MIN_FPS && !locked.has("lerpMin")) {
+        if (applyChange("lerpMin", +STEPS.lerpMin, "low fps")) return;
+      }
+
+      /* Priority 1: too much jitter → smooth more */
+      if (!goodJitter && jitter > TARGET_JITTER * 1.4) {
+        if (!locked.has("lerpMin") && T.lerpMin > 0.10) {
+          if (!trackOscillation("lerpMin", -1))
+            if (applyChange("lerpMin", -STEPS.lerpMin, "high jitter")) return;
+        }
+        if (!locked.has("predictMs") && T.predictMs > 20) {
+          if (!trackOscillation("predictMs", -1))
+            if (applyChange("predictMs", -STEPS.predictMs, "high jitter")) return;
+        }
+      }
+
+      /* Priority 2: too much lag → track tighter */
+      if (!goodLag && lag > TARGET_LAG * 1.4) {
+        if (!locked.has("lerpMin") && T.lerpMin < 0.50) {
+          if (!trackOscillation("lerpMin", +1))
+            if (applyChange("lerpMin", +STEPS.lerpMin, "high lag")) return;
+        }
+        if (!locked.has("lerpSpeed") && T.lerpSpeed < 0.035) {
+          if (!trackOscillation("lerpSpeed", +1))
+            if (applyChange("lerpSpeed", +STEPS.lerpSpeed, "high lag")) return;
+        }
+      }
+
+      /* Priority 3: overshoot → less prediction, more damping */
+      if (!goodOver && overshoot > TARGET_OVER * 1.4) {
+        if (!locked.has("predictMs") && T.predictMs > 10) {
+          if (!trackOscillation("predictMs", -1))
+            if (applyChange("predictMs", -STEPS.predictMs, "overshoot")) return;
+        }
+        if (!locked.has("lerpMin") && T.lerpMin > 0.10) {
+          if (!trackOscillation("lerpMin", -1))
+            if (applyChange("lerpMin", -STEPS.lerpMin, "overshoot")) return;
+        }
+      }
+
+      /* Priority 4: consistent undershoot (cursor always behind target)
+         → more prediction */
+      if (goodJitter && !goodLag && overshoot < 1 && lag > TARGET_LAG * 1.6) {
+        if (!locked.has("predictMs") && T.predictMs < 160) {
+          if (!trackOscillation("predictMs", +1))
+            if (applyChange("predictMs", +STEPS.predictMs, "undershoot")) return;
+        }
+      }
+
+      /* Priority 5: hand is dead still but cursor still wobbles a hair
+         → bump the dead-zone */
+      if (jitter > 0.25 && jitter < TARGET_JITTER && !locked.has("deadPx")) {
+        if (applyChange("deadPx", +STEPS.deadPx, "micro-jitter")) return;
+      }
+    }
+
+    function setEnabled(v) {
+      enabled = v;
+      aiToggle.classList.toggle("on", v);
+      aiToggleIcon.className = v
+        ? "fa-solid fa-circle-play"
+        : "fa-solid fa-circle-pause";
+      aiToggleLabel.textContent = v ? "On" : "Off";
+      log(v ? "ok" : "warn", v ? "auto-tune enabled" : "auto-tune disabled");
+    }
+
+    function reset() {
+      lastAdjustT = 0;
+      consecutiveGoodFrames = 0;
+      oscillationGuard = 0;
+      lastMoved = null;
+      PerfMonitor.reset();
+    }
+
+    return {
+      evaluate,
+      setEnabled,
+      reset,
+      isEnabled: () => enabled,
+    };
+  })();
+
+  /* ═════════ AI helpers ═════════ */
+  function log(kind, msg) {
+    const el = document.createElement("span");
+    el.className = "entry " + kind;
+    const time = new Date().toLocaleTimeString([], { hour12: false }).slice(-8);
+    el.textContent = `${time} ${msg}`;
+    aiLogEl.appendChild(el);
+    /* Keep only the most recent 3 entries */
+    while (aiLogEl.children.length > 3) aiLogEl.removeChild(aiLogEl.firstChild);
+  }
+  function lockParam(key) {
+    locked.add(key);
+    saveLocks();
+    syncTunerRow(key);
+  }
+  function unlockParam(key) {
+    locked.delete(key);
+    saveLocks();
+    syncTunerRow(key);
+  }
+  function syncTunerRow(key) {
+    const rng = document.getElementById("r_" + key);
+    const num = document.getElementById("t_" + key);
+    if (rng) {
+      rng.value = T[key];
+      rng.classList.toggle("locked", locked.has(key));
+    }
+    if (num) num.value = T[key];
+    const lbl = document.querySelector(`label[for="t_${key}"]`);
+    if (lbl) {
+      const existing = lbl.querySelector(".lock-badge");
+      if (existing) existing.remove();
+      if (locked.has(key)) {
+        const badge = document.createElement("span");
+        badge.className = "lock-badge";
+        badge.textContent = "🔒 locked";
+        lbl.appendChild(badge);
+      }
+    }
+  }
+
+  /* AI toggle button */
+  aiToggle.addEventListener("click", () => {
+    AutoTuner.setEnabled(!AutoTuner.isEnabled());
+  });
+  AutoTuner.setEnabled(true);
+
+  /* Metrics display — refresh 2 Hz */
+  function refreshAIUI() {
+    const s = PerfMonitor.snapshot();
+
+    function classify(val, good, warn) {
+      if (val <= good) return "good";
+      if (val <= warn) return "warn";
+      return "bad";
+    }
+
+    aiJitterEl.textContent = s.jitter.toFixed(2) + "px";
+    aiJitterEl.className = "val " + classify(s.jitter, 0.5, 1.2);
+
+    aiLagEl.textContent = (s.lag | 0) + "ms";
+    aiLagEl.className = "val " + classify(s.lag, 100, 180);
+
+    aiOverEl.textContent = s.overshoot.toFixed(1) + "px";
+    aiOverEl.className = "val " + classify(s.overshoot, 4, 10);
+  }
+  setInterval(refreshAIUI, 500);
+
+  /* Auto-tuner evaluation — 2 Hz */
+  setInterval(() => {
+    if (AutoTuner.isEnabled()) AutoTuner.evaluate(PerfMonitor.snapshot());
+  }, 500);
+
+  /* ═════════ Main RAF loop ═════════ */
   let frames = 0, lastFpsT = performance.now();
   function loop() {
     const now = performance.now();
@@ -1084,14 +1545,18 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       cursor.x += dx * f; cursor.y += dy * f;
     }
 
-    /* Single style write per frame — nothing else touches layout here */
     cursorEl.style.transform =
       `translate3d(${(cursor.x - TIP_OFF_X).toFixed(2)}px, ${(cursor.y - TIP_OFF_Y).toFixed(2)}px, 0)`;
     cursorEl.classList.toggle("visible", latestHands.length > 0 || cal.active);
 
+    /* Feed the perf monitor */
+    PerfMonitor.tick(cursor.x, cursor.y, px, py, now);
+
     frames++;
     if (now - lastFpsT >= 1000) {
-      fpsState.textContent = frames + " fps";
+      const fps = frames;
+      fpsState.textContent = fps + " fps";
+      PerfMonitor.setFps(fps);
       frames = 0; lastFpsT = now;
     }
 
@@ -1169,11 +1634,6 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   let worker = null, workerReady = false, workerFailed = false;
   let workerFirstResultAt = 0, fallbackStarted = false, frameBusy = false;
 
-  function postDiagToPanel(stats) {
-    pipelineState.textContent =
-      `${stats.framesSent}/${stats.framesProcessed}/${stats.resultsWithHands}`;
-  }
-
   function startWorker() {
     workerState.textContent = "starting…";
     try {
@@ -1195,8 +1655,6 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
           hasFreshHand = true;
           handDot.classList.toggle("on", latestHands.length > 0);
           handState.textContent = latestHands.length > 0 ? "tracking" : "absent";
-        } else if (msg.type === "diag") {
-          postDiagToPanel(msg.stats);
         } else if (msg.type === "error") {
           console.error("[worker]", msg.message);
           workerFailed = true;
@@ -1286,7 +1744,6 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       hasFreshHand = true;
       handDot.classList.toggle("on", latestHands.length > 0);
       handState.textContent = latestHands.length > 0 ? "tracking" : "absent";
-      pipelineState.textContent = latestHands.length ? "main ✓" : "main —";
     });
     let busy = false;
     async function pump() {
@@ -1332,7 +1789,7 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
         return;
       }
       row.innerHTML = `
-        <label>${d.l}</label>
+        <label for="t_${key}">${d.l}</label>
         <input class="num" id="t_${key}" type="number"
                min="${d.min}" max="${d.max}" step="${d.step}" value="${T[key]}"
                inputmode="decimal">
@@ -1341,22 +1798,34 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       paneTuners.appendChild(row);
       const num = row.querySelector(".num");
       const rng = row.querySelector("input[type=range]");
+
+      /* Manual touch on an AI-controlled param locks it */
+      const userTouch = () => {
+        if (AI_CONTROLLED.includes(key) && !locked.has(key)) {
+          lockParam(key);
+          log("warn", `user set ${key} — locked from AI`);
+        }
+      };
+
       const commit = (v, from) => {
         v = clamp(v, d.min, d.max); T[key] = v;
         if (from !== "num") num.value = v;
         if (from !== "rng") rng.value = v;
         saveCfg(); refreshJson();
       };
-      num.addEventListener("input", () => commit(parseFloat(num.value) || d.d, "num"));
-      rng.addEventListener("input", () => commit(parseFloat(rng.value), "rng"));
+      num.addEventListener("input", () => { userTouch(); commit(parseFloat(num.value) || d.d, "num"); });
+      rng.addEventListener("input", () => { userTouch(); commit(parseFloat(rng.value), "rng"); });
+
+      if (locked.has(key)) syncTunerRow(key);
     });
   }
 
   function getJSON() {
     return JSON.stringify({
-      app: "dex-hand-cursor", version: 11,
+      app: "dex-hand-cursor", version: 12,
       savedAt: new Date().toISOString(),
       config: { ...T },
+      locked: [...locked],
       calibration: cal.raw.length === 4 ? { raw: cal.raw, scr: cal.scr } : null,
     }, null, 2);
   }
@@ -1369,6 +1838,11 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
       const p = JSON.parse(jsonArea.value);
       const c = p.config || p;
       Object.keys(TUNER_DEFS).forEach((k) => { if (k in c) T[k] = c[k]; });
+      if (Array.isArray(p.locked)) {
+        locked.clear();
+        p.locked.forEach(k => locked.add(k));
+        saveLocks();
+      }
       if (p.calibration && p.calibration.raw && p.calibration.raw.length === 4) {
         cal.raw = p.calibration.raw; cal.scr = p.calibration.scr;
         cal.M = buildAffine(cal.raw, cal.scr);
@@ -1388,7 +1862,11 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
   document.getElementById("applyJson").addEventListener("click", applyJson);
   document.getElementById("resetTuner").addEventListener("click", () => {
     Object.keys(TUNER_DEFS).forEach((k) => { T[k] = TUNER_DEFS[k].d; });
-    buildTuner(); saveCfg(); jsonDirty = false; refreshJson(); showToast("Reset");
+    locked.clear(); saveLocks();
+    AutoTuner.reset();
+    buildTuner(); saveCfg(); jsonDirty = false; refreshJson();
+    log("ok", "everything reset — AI released all locks");
+    showToast("Reset & unlocked");
   });
   document.getElementById("tunerToggle").addEventListener("click", () => {
     document.getElementById("tuner").classList.toggle("collapsed");
@@ -1445,6 +1923,8 @@ setInterval(function () { post('diag', { stats: diag }); }, 2000);
 
   addEventListener("keydown", (e) => {
     if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey && !cal.active) calStart();
+    if (e.key.toLowerCase() === "a" && !e.ctrlKey && !e.metaKey)
+      AutoTuner.setEnabled(!AutoTuner.isEnabled());
   });
   addEventListener("resize", () => { if (cal.active) renderCalStep(); });
 
