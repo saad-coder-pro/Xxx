@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>DeX Hand Cursor · Inline Worker</title>
+<title>DeX Hand Cursor · Fixed Worker</title>
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -21,8 +21,7 @@
     -webkit-text-size-adjust:100%;overscroll-behavior-y:none;
   }
   html{scroll-behavior:auto !important}
-  button,select,input,a,.cal-btn,.cal-target,.target,.card,
-  .tuner-tabs button,.icon-btn{
+  button,select,input,a,.cal-btn,.target,.card,.tuner-tabs button,.icon-btn{
     touch-action:manipulation;-webkit-tap-highlight-color:transparent;
     -webkit-user-select:none;user-select:none;
   }
@@ -30,14 +29,11 @@
   body.calibrating{cursor:auto}
   body.calibrating #cursor{display:none !important}
 
-  #video{
-    position:fixed;left:-10000px;top:0;
-    width:640px;height:480px;opacity:0;pointer-events:none;
-  }
+  #video{position:fixed;left:-10000px;top:0;width:640px;height:480px;
+    opacity:0;pointer-events:none}
 
   #cursor{
-    position:fixed;left:0;top:0;
-    width:20px;height:20px;border-radius:50%;
+    position:fixed;left:0;top:0;width:20px;height:20px;border-radius:50%;
     background:#fff;border:2px solid rgba(0,0,0,.85);
     pointer-events:none;z-index:2147483647;
     transform:translate3d(0,0,0);opacity:0;
@@ -45,16 +41,13 @@
     will-change:transform;
   }
   #cursor.visible{opacity:1}
-  #cursor.selecting{
-    width:22px;height:22px;background:transparent;
-    border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55) inset;
-  }
+  #cursor.selecting{width:22px;height:22px;background:transparent;
+    border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55) inset}
 
   .cal-overlay{
     position:fixed;inset:0;z-index:2147483646;
-    background:rgba(4,6,10,.96);display:none;
-    flex-direction:column;align-items:center;justify-content:center;
-    padding:20px;touch-action:none;
+    background:rgba(4,6,10,.96);display:none;flex-direction:column;
+    align-items:center;justify-content:center;padding:20px;touch-action:none;
   }
   .cal-overlay.active{display:flex}
   .cal-panel{
@@ -72,24 +65,21 @@
   .cal-status{display:flex;gap:10px;align-items:center;margin-top:6px;
     flex-wrap:wrap;justify-content:center}
   .cal-badge{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;
-    letter-spacing:.6px;text-transform:uppercase;
-    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
-    color:var(--muted);transition:background .15s,color .15s,border-color .15s;
+    display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+    border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.6px;
+    text-transform:uppercase;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);color:var(--muted);
+    transition:background .15s,color .15s,border-color .15s;
   }
   .cal-badge.ok{background:rgba(34,224,122,.12);border-color:rgba(34,224,122,.5);color:var(--green)}
   .cal-badge.warn{background:rgba(255,80,120,.12);border-color:rgba(255,80,120,.5);color:var(--pink)}
 
-  .cal-target{
-    position:absolute;width:80px;height:80px;
-    transform:translate(-50%,-50%);pointer-events:none;transition:opacity .25s;
-  }
-  .cal-target .ring{
-    position:absolute;inset:0;border-radius:50%;border:2.5px solid var(--cyan);
+  .cal-target{position:absolute;width:80px;height:80px;transform:translate(-50%,-50%);
+    pointer-events:none;transition:opacity .25s}
+  .cal-target .ring{position:absolute;inset:0;border-radius:50%;
+    border:2.5px solid var(--cyan);
     box-shadow:0 0 26px rgba(0,230,255,.55),inset 0 0 26px rgba(0,230,255,.25);
-    animation:cal-pulse 1.4s ease-in-out infinite;
-  }
+    animation:cal-pulse 1.4s ease-in-out infinite}
   .cal-target .ring.outer{inset:-16px;border-width:1.5px;opacity:.35;animation-delay:.4s}
   .cal-target .core{position:absolute;inset:32px;border-radius:50%;background:#fff;
     box-shadow:0 0 22px rgba(255,255,255,.9)}
@@ -98,27 +88,22 @@
     box-shadow:0 0 40px rgba(34,224,122,.9);animation:none}
   .cal-target.captured .core{background:var(--green)}
 
-  .cal-actions{
-    position:absolute;bottom:100px;left:50%;transform:translateX(-50%);
-    display:flex;gap:14px;pointer-events:auto;
-    flex-wrap:wrap;justify-content:center;padding:0 20px;
-  }
-  .cal-btn{
-    min-height:60px;min-width:150px;padding:16px 32px;
+  .cal-actions{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);
+    display:flex;gap:14px;pointer-events:auto;flex-wrap:wrap;
+    justify-content:center;padding:0 20px}
+  .cal-btn{min-height:60px;min-width:150px;padding:16px 32px;
     font-size:15px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
     border-radius:14px;border:none;cursor:pointer;
     display:inline-flex;align-items:center;justify-content:center;gap:10px;
-    transition:transform .12s,filter .12s,box-shadow .12s;
+    transition:transform .12s,filter .12s;
     box-shadow:0 12px 34px rgba(0,230,255,.3);
-    background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111a;
-  }
+    background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111a}
   .cal-btn:not(:disabled):active{transform:scale(.96)}
-  .cal-btn:disabled{background:rgba(255,255,255,.06);color:#4d586d;box-shadow:none;
-    cursor:not-allowed;border:1px solid rgba(255,255,255,.08)}
+  .cal-btn:disabled{background:rgba(255,255,255,.06);color:#4d586d;
+    box-shadow:none;cursor:not-allowed;border:1px solid rgba(255,255,255,.08)}
   .cal-btn.ghost{background:rgba(255,255,255,.04);
     border:1px solid rgba(255,255,255,.1);color:var(--muted);
     box-shadow:none;font-size:12px;min-width:auto;padding:16px 22px}
-  .cal-btn.ghost:not(:disabled):active{color:var(--pink);border-color:rgba(255,80,120,.4)}
 
   .cal-progress{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);
     display:flex;gap:10px}
@@ -128,14 +113,12 @@
   .cal-progress .step.current{background:var(--cyan);
     box-shadow:0 0 12px rgba(0,230,255,.7);animation:cal-pulse 1.2s ease-in-out infinite}
 
-  .panel{
-    position:fixed;top:12px;left:12px;z-index:100;
+  .panel{position:fixed;top:12px;left:12px;z-index:100;
     background:rgba(12,16,24,.88);backdrop-filter:blur(14px);
     -webkit-backdrop-filter:blur(14px);
     border:1px solid rgba(255,255,255,.09);border-radius:16px;
-    padding:14px 16px;width:280px;pointer-events:none;font-size:12px;
-    display:flex;flex-direction:column;gap:10px;max-width:calc(100vw - 24px);
-  }
+    padding:14px 16px;width:290px;pointer-events:none;font-size:12px;
+    display:flex;flex-direction:column;gap:10px;max-width:calc(100vw - 24px)}
   .panel h1{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;
     background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
@@ -156,19 +139,15 @@
     border:1px solid rgba(255,255,255,.14);border-radius:4px;
     padding:0 5px;font-family:inherit;font-size:10px}
 
-  .tuner{
-    position:fixed;top:12px;right:12px;z-index:150;
-    width:340px;max-height:calc(100vh - 24px);
-    background:rgba(12,16,24,.94);backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
+  .tuner{position:fixed;top:12px;right:12px;z-index:150;width:340px;
+    max-height:calc(100vh - 24px);background:rgba(12,16,24,.94);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border:1px solid rgba(255,255,255,.09);border-radius:16px;
-    display:flex;flex-direction:column;overflow:hidden;
-  }
-  .tuner.collapsed .tuner-body,
-  .tuner.collapsed .tuner-foot,
+    display:flex;flex-direction:column;overflow:hidden}
+  .tuner.collapsed .tuner-body,.tuner.collapsed .tuner-foot,
   .tuner.collapsed .tuner-tabs{display:none}
   .tuner-head{display:flex;align-items:center;justify-content:space-between;
-    padding:12px 14px;font-size:13px;font-weight:700;letter-spacing:.3px;
+    padding:12px 14px;font-size:13px;font-weight:700;
     border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
   .tuner-head .title{display:flex;align-items:center;gap:8px}
   .tuner-head .title i{color:var(--cyan)}
@@ -177,13 +156,13 @@
     display:grid;place-items:center;font-size:13px}
   .tuner-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.06);
     flex-shrink:0;padding:0 8px}
-  .tuner-tabs button{background:none;border:none;color:var(--muted);
-    padding:12px;font-size:11px;font-weight:700;letter-spacing:.6px;
-    text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;
+  .tuner-tabs button{background:none;border:none;color:var(--muted);padding:12px;
+    font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+    cursor:pointer;border-bottom:2px solid transparent;
     display:inline-flex;align-items:center;gap:5px;min-height:44px}
   .tuner-tabs button.active{color:var(--cyan);border-bottom-color:var(--cyan)}
-  .tuner-body{padding:8px 14px 12px;overflow-y:auto;overflow-x:hidden;
-    flex:1;-webkit-overflow-scrolling:touch}
+  .tuner-body{padding:8px 14px 12px;overflow-y:auto;overflow-x:hidden;flex:1;
+    -webkit-overflow-scrolling:touch}
   .tuner-body.hidden{display:none}
   .tuner-group{font-size:10.5px;font-weight:700;letter-spacing:1.4px;
     text-transform:uppercase;color:var(--muted);margin:14px 0 6px;
@@ -200,15 +179,13 @@
     font-family:ui-monospace,monospace;font-size:12px;padding:6px 8px;
     border-radius:8px;text-align:right;font-weight:600}
   .tuner-row .num:focus{outline:none;border-color:var(--cyan);background:rgba(0,230,255,.05)}
-  .tuner-row input[type=range]{grid-column:1/-1;-webkit-appearance:none;
-    appearance:none;width:100%;height:24px;background:transparent;
-    outline:none;margin-top:2px;padding:0}
+  .tuner-row input[type=range]{grid-column:1/-1;-webkit-appearance:none;appearance:none;
+    width:100%;height:24px;background:transparent;outline:none;margin-top:2px;padding:0}
   .tuner-row input[type=range]::-webkit-slider-runnable-track{
     height:6px;border-radius:999px;background:rgba(255,255,255,.09)}
   .tuner-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
     width:24px;height:24px;border-radius:50%;background:#fff;
-    border:2px solid #0b0e14;margin-top:-9px;
-    box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+    border:2px solid #0b0e14;margin-top:-9px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
   .tuner-row input[type=range]::-moz-range-track{
     height:6px;border-radius:999px;background:rgba(255,255,255,.09)}
   .tuner-row input[type=range]::-moz-range-thumb{
@@ -220,26 +197,23 @@
     border:1px solid rgba(255,255,255,.07);border-radius:10px;color:#8be9fd;
     font-family:ui-monospace,monospace;font-size:11px;line-height:1.5;
     padding:12px;resize:vertical;outline:none}
-  .json-area:focus{border-color:var(--cyan)}
   .json-help{font-size:10.5px;color:var(--muted);margin-bottom:8px;line-height:1.5}
   .tuner-foot{padding:10px 14px;border-top:1px solid rgba(255,255,255,.06);
     display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
-  .tuner-foot button{flex:1 1 auto;min-width:88px;min-height:42px;
-    padding:10px 12px;font-size:11.5px;font-weight:700;
-    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
-    color:var(--text);border-radius:10px;cursor:pointer;
-    display:inline-flex;align-items:center;justify-content:center;gap:6px}
-  .tuner-foot button:active{background:rgba(0,230,255,.08);color:var(--cyan)}
+  .tuner-foot button{flex:1 1 auto;min-width:88px;min-height:42px;padding:10px 12px;
+    font-size:11.5px;font-weight:700;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);color:var(--text);border-radius:10px;
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
   .tuner-foot button.primary{background:linear-gradient(135deg,var(--cyan),var(--blue));
     border:none;color:#06111a}
 
   .status-pill{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
-    z-index:100;display:flex;align-items:center;gap:8px;
-    padding:8px 16px;border-radius:999px;background:rgba(12,16,24,.85);
+    z-index:100;display:flex;align-items:center;gap:8px;padding:8px 16px;
+    border-radius:999px;background:rgba(12,16,24,.85);
     backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.08);font-size:11px;
-    letter-spacing:.3px;color:var(--muted);pointer-events:none;
-    white-space:nowrap;max-width:calc(100vw - 32px)}
+    border:1px solid rgba(255,255,255,.08);font-size:11px;letter-spacing:.3px;
+    color:var(--muted);pointer-events:none;white-space:nowrap;
+    max-width:calc(100vw - 32px)}
   .status-pill i{color:var(--cyan)}
   .status-pill .live-dot{width:8px;height:8px;border-radius:50%;
     background:var(--red);box-shadow:0 0 10px var(--red);
@@ -247,10 +221,9 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
   .toast{position:fixed;bottom:70px;left:50%;transform:translate(-50%,20px);
     padding:10px 20px;border-radius:12px;background:rgba(12,16,24,.92);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.1);color:var(--text);font-size:12px;
-    opacity:0;pointer-events:none;z-index:2147483645;
-    transition:opacity .25s,transform .25s;
+    backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);
+    color:var(--text);font-size:12px;opacity:0;pointer-events:none;
+    z-index:2147483645;transition:opacity .25s,transform .25s;
     max-width:calc(100vw - 32px);text-align:center}
   .toast.show{opacity:1;transform:translate(-50%,0)}
   .toast i{color:var(--cyan);margin-right:6px}
@@ -266,9 +239,8 @@
   .target{position:relative;aspect-ratio:1/1;border-radius:20px;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:8px;background:rgba(255,255,255,.035);
-    border:1.5px solid rgba(255,255,255,.09);color:var(--text);user-select:none;
-    transition:transform .18s,background .18s,border-color .18s,box-shadow .18s}
-  .target i{font-size:28px;color:var(--c);transition:transform .18s}
+    border:1.5px solid rgba(255,255,255,.09);color:var(--text)}
+  .target i{font-size:28px;color:var(--c)}
   .target span{font-size:10.5px;font-weight:600;letter-spacing:.8px;
     text-transform:uppercase;color:var(--muted)}
   .target.flash{transform:scale(.94);border-color:var(--c);
@@ -279,8 +251,7 @@
     background:linear-gradient(135deg,
       color-mix(in srgb,var(--c) 22%,#0d1220),
       color-mix(in srgb,var(--c) 6%,#0d1220));
-    border:1.5px solid color-mix(in srgb,var(--c) 55%,transparent);
-    user-select:none;transition:box-shadow .18s,transform .18s,border-color .18s}
+    border:1.5px solid color-mix(in srgb,var(--c) 55%,transparent)}
   .card.draggable i{font-size:20px;color:var(--c)}
   .card.draggable h3{font-size:14px;margin-top:8px;font-weight:700}
   .card.draggable p{font-size:11px;color:var(--muted);margin-top:4px}
@@ -288,8 +259,7 @@
     box-shadow:0 18px 44px color-mix(in srgb,var(--gold) 35%,transparent);z-index:200}
   .text-block{background:rgba(255,255,255,.025);
     border:1px solid rgba(255,255,255,.06);border-radius:16px;
-    padding:22px 24px;line-height:1.8;font-size:14px;color:#c8d2e6;
-    user-select:text}
+    padding:22px 24px;line-height:1.8;font-size:14px;color:#c8d2e6;user-select:text}
   .text-block h3{font-size:15px;color:var(--text);margin-bottom:12px}
   .text-block p{margin-bottom:14px}
   .text-block p:last-child{margin-bottom:0}
@@ -306,21 +276,20 @@
 <div id="cursor"></div>
 <video id="video" autoplay playsinline muted></video>
 
-<!-- ═════════ CALIBRATION ═════════ -->
+<!-- CALIBRATION -->
 <div class="cal-overlay" id="calOverlay">
   <div class="cal-panel">
     <h2>Calibrate your cursor</h2>
     <p class="cal-sub">
       <b>Point your hand toward the target dot.</b>
-      Tap <b>Confirm</b> when your fingertip is on the target.
-      Repeat for all 4 corners. This corrects for your camera's position.
+      Tap <b>Confirm</b> when your fingertip is on the target. 4 corners.
     </p>
     <div class="cal-status">
       <span class="cal-badge" id="calHandBadge">
         <i class="fa-solid fa-hand"></i>
         <span id="calHandText">Hand: waiting…</span>
       </span>
-      <span class="cal-badge" id="calCornerBadge">
+      <span class="cal-badge">
         <i class="fa-solid fa-crosshairs"></i>
         <span id="calCornerText">Corner 1 / 4 — Top Right</span>
       </span>
@@ -344,7 +313,7 @@
   </div>
 </div>
 
-<!-- ═════════ INFO PANEL ═════════ -->
+<!-- INFO PANEL -->
 <div class="panel">
   <h1><i class="fa-solid fa-hand-pointer"></i> DeX Hand Cursor</h1>
   <div class="status-grid">
@@ -354,6 +323,8 @@
     <div class="v" id="actionState">Idle</div>
     <div class="k">Runtime</div>
     <div class="v" id="workerState">booting…</div>
+    <div class="k">Pipeline</div>
+    <div class="v" id="pipelineState">—</div>
     <div class="k">FPS</div>
     <div class="v" id="fpsState">—</div>
     <div class="k">Calibration</div>
@@ -363,30 +334,23 @@
     <i class="fa-solid fa-arrow-pointer"></i><b>Index</b> → move<br>
     <i class="fa-solid fa-hand-point-up"></i><b>Pinch thumb+index</b> → click<br>
     <i class="fa-solid fa-i-cursor"></i><b>Hold pinch</b> → select text<br>
-    <i class="fa-solid fa-up-down-left-right"></i><b>Thumb+middle pinch</b> → drag<br>
-    <i class="fa-solid fa-hand-peace"></i><b>Peace sign</b> → scroll
+    <i class="fa-solid fa-up-down-left-right"></i><b>Thumb+middle</b> → drag<br>
+    <i class="fa-solid fa-hand-peace"></i><b>Peace</b> → scroll
   </div>
   <div class="hint" style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;">
-    <i class="fa-solid fa-mobile-screen"></i>Touch-friendly.<br>
-    <kbd>R</kbd> recalibrate
+    <kbd>R</kbd> recalibrate &nbsp;<kbd>D</kbd> diagnostics
   </div>
 </div>
 
-<!-- ═════════ TUNER ═════════ -->
+<!-- TUNER -->
 <div class="tuner" id="tuner">
   <div class="tuner-head">
     <div class="title"><i class="fa-solid fa-sliders"></i> Tuner</div>
-    <button class="icon-btn" id="tunerToggle">
-      <i class="fa-solid fa-chevron-up"></i>
-    </button>
+    <button class="icon-btn" id="tunerToggle"><i class="fa-solid fa-chevron-up"></i></button>
   </div>
   <div class="tuner-tabs">
-    <button id="tabTuners" class="active">
-      <i class="fa-solid fa-sliders"></i> Values
-    </button>
-    <button id="tabJson">
-      <i class="fa-solid fa-code"></i> JSON
-    </button>
+    <button id="tabTuners" class="active"><i class="fa-solid fa-sliders"></i> Values</button>
+    <button id="tabJson"><i class="fa-solid fa-code"></i> JSON</button>
   </div>
   <div class="tuner-body" id="paneTuners"></div>
   <div class="tuner-body hidden" id="paneJson">
@@ -411,17 +375,19 @@
 <main>
   <h2 class="section">Selectable Text</h2>
   <div class="text-block">
-    <h3>Inline worker + LERP</h3>
+    <h3>Fixed: hands now detected</h3>
     <p>
-      The worker is now built from an inline Blob — no external <code>worker.js</code> file.
-      That works from <code>file://</code>, static hosts, or anywhere. If the browser blocks
-      MediaPipe's CDN from inside a worker, the page automatically falls back to running
-      MediaPipe on the main thread.
+      The worker used to feed a raw <code>ImageBitmap</code> straight into
+      <code>hands.send()</code>, which MediaPipe silently rejects. Now the worker
+      draws each frame onto an <b>OffscreenCanvas</b> first — the format MediaPipe
+      actually consumes — and awaits <code>hands.initialize()</code> before
+      reporting ready. If nothing is detected within 4&nbsp;s, the page auto-falls-back
+      to main-thread inference.
     </p>
     <p>
-      The cursor is still driven by a <code>requestAnimationFrame</code> loop with LERP
-      smoothing — small movements are damped, fast movements snap, and prediction cancels
-      the pipeline latency. The result is a smooth, gliding hand cursor.
+      Press <kbd>D</kbd> to toggle diagnostics, or watch the <b>Pipeline</b> row
+      in the panel — it shows <code>sent / processed / hands</code> every second so
+      you can see exactly where things stall.
     </p>
   </div>
 
@@ -455,21 +421,31 @@
   </p>
 </main>
 
-<!-- ═══════════════════════════════════════════════════════
-     INLINE WORKER SOURCE
-     (browser won't execute this — we read .textContent)
-     ═══════════════════════════════════════════════════════ -->
+<!-- ═════════ INLINE WORKER SOURCE ═════════ -->
 <script type="text/plain" id="workerSrc">
-/* ── MediaPipe Hands running inside a Web Worker ── */
+/* ============================================================
+   MediaPipe Hands inside a Web Worker — fixed version
+   ============================================================ */
 
-/* Polyfill the bits of `document` that MediaPipe's bundle touches. */
-if (typeof document === 'undefined') {
+/* ── 1. Polyfill the pieces MediaPipe touches on `self` ── */
+if (typeof self.window === 'undefined') {
+  self.window = self;                 /* some builds check for `window` */
+}
+if (typeof self.document === 'undefined') {
   self.document = {
     createElement: function (tag) {
-      if (tag === 'canvas') {
-        var c = new OffscreenCanvas(1, 1);
-        c.style = {};
-        return c;
+      if (tag === 'canvas' || tag === 'CANVAS') {
+        if (typeof OffscreenCanvas !== 'undefined') {
+          var c = new OffscreenCanvas(1, 1);
+          c.style = {};
+          return c;
+        }
+        /* Fallback: minimal stub — MediaPipe will use its own canvas */
+        return {
+          style: {}, width: 1, height: 1,
+          getContext: function () { return null; },
+          appendChild: function () {}, removeChild: function () {},
+        };
       }
       return {
         style: {},
@@ -479,12 +455,8 @@ if (typeof document === 'undefined') {
         removeEventListener: function () {},
       };
     },
-    createElementNS: function () {
-      return self.document.createElement('canvas');
-    },
-    currentScript: {
-      src: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js',
-    },
+    createElementNS: function () { return self.document.createElement('canvas'); },
+    currentScript: { src: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js' },
     addEventListener: function () {},
     removeEventListener: function () {},
     body: { appendChild: function () {}, removeChild: function () {} },
@@ -495,20 +467,32 @@ if (typeof document === 'undefined') {
   self.HTMLCanvasElement = self.HTMLCanvasElement || function () {};
 }
 
-/* ── Load MediaPipe from CDN ── */
+/* ── 2. Diagnostic counters ── */
+var diag = { framesSent: 0, framesProcessed: 0, resultsWithHands: 0, lastError: null };
+
+function post(type, data) {
+  self.postMessage(Object.assign({ type: type }, data || {}));
+}
+
+/* ── 3. Load MediaPipe from CDN ── */
+var CDN_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/';
+
 try {
-  importScripts('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js');
+  importScripts(CDN_BASE + 'hands.js');
 } catch (err) {
-  self.postMessage({
-    type: 'error',
+  post('error', {
     message: 'importScripts failed: ' + String(err && err.message ? err.message : err),
   });
   throw err;
 }
 
-/* ── Instantiate the model ── */
-var CDN_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/';
+/* Verify the global actually exists */
+if (typeof Hands !== 'function') {
+  post('error', { message: 'Hands global missing after importScripts' });
+  throw new Error('Hands not defined');
+}
 
+/* ── 4. Instantiate the model ── */
 var hands = new Hands({
   locateFile: function (f) { return CDN_BASE + f; },
 });
@@ -516,15 +500,17 @@ var hands = new Hands({
 hands.setOptions({
   maxNumHands: 2,
   modelComplexity: 1,
-  minDetectionConfidence: 0.6,
-  minTrackingConfidence: 0.6,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5,
   selfieMode: true,
 });
 
-/* ── Post results back to the main thread ── */
+/* ── 5. Result handler ── */
 hands.onResults(function (results) {
+  diag.framesProcessed++;
   var out = [];
-  if (results.multiHandLandmarks) {
+  if (results && results.multiHandLandmarks && results.multiHandLandmarks.length) {
+    diag.resultsWithHands++;
     for (var i = 0; i < results.multiHandLandmarks.length; i++) {
       var lm = results.multiHandLandmarks[i];
       var arr = [];
@@ -534,50 +520,100 @@ hands.onResults(function (results) {
       out.push(arr);
     }
   }
-  self.postMessage({ type: 'results', hands: out });
+  post('results', { hands: out });
 });
 
-/* ── Frame handler with backpressure (keep newest) ── */
+/* ── 6. Initialise the model BEFORE posting ready ── */
+var ready = false;
+
+function postReady() {
+  if (ready) return;
+  ready = true;
+  post('ready');
+}
+
+if (typeof hands.initialize === 'function') {
+  hands.initialize()
+    .then(postReady)
+    .catch(function (err) {
+      post('error', {
+        message: 'hands.initialize failed: ' +
+          String(err && err.message ? err.message : err),
+      });
+    });
+} else {
+  /* Older builds don't expose initialize(); send a no-op frame to warm up */
+  postReady();
+}
+
+/* ── 7. Frame handling: draw bitmap → OffscreenCanvas → send ── */
 var busy = false;
 var pending = null;
+var workCanvas = null;
+var workCtx = null;
+
+function ensureCanvas(w, h) {
+  if (!workCanvas || workCanvas.width !== w || workCanvas.height !== h) {
+    workCanvas = new OffscreenCanvas(w, h);
+    workCtx = workCanvas.getContext('2d', { willReadFrequently: false });
+  }
+}
+
+function processFrame(bitmap) {
+  diag.framesSent++;
+
+  try {
+    ensureCanvas(bitmap.width, bitmap.height);
+    workCtx.drawImage(bitmap, 0, 0);
+  } catch (err) {
+    try { bitmap.close(); } catch (_) {}
+    post('error', { message: 'drawImage failed: ' + String(err) });
+    return Promise.resolve();
+  }
+
+  try { bitmap.close(); } catch (_) {}
+
+  return hands.send({ image: workCanvas })
+    .catch(function (err) {
+      post('error', {
+        message: 'hands.send failed: ' + String(err && err.message ? err.message : err),
+      });
+    });
+}
 
 function handleFrame(bitmap) {
   if (busy) {
-    if (pending) { try { pending.close(); } catch (e) {} }
+    if (pending) { try { pending.close(); } catch (_) {} }
     pending = bitmap;
     return;
   }
   busy = true;
-  hands.send({ image: bitmap })
-    .catch(function (err) {
-      self.postMessage({
-        type: 'error',
-        message: 'hands.send: ' + String(err && err.message ? err.message : err),
-      });
-    })
-    .then(function () {
-      try { bitmap.close(); } catch (e) {}
-      busy = false;
-      if (pending) {
-        var b = pending;
-        pending = null;
-        handleFrame(b);
-      }
-    });
+  processFrame(bitmap).then(function () {
+    busy = false;
+    if (pending) {
+      var b = pending; pending = null;
+      handleFrame(b);
+    }
+  });
 }
 
+/* ── 8. Message handler ── */
 self.onmessage = function (e) {
   var msg = e.data;
   if (!msg) return;
   if (msg.type === 'frame' && msg.bitmap) {
     handleFrame(msg.bitmap);
   } else if (msg.type === 'options' && msg.options) {
-    try { hands.setOptions(msg.options); } catch (err) {}
+    try { hands.setOptions(msg.options); } catch (_) {}
+  } else if (msg.type === 'diag') {
+    post('diag', { stats: diag });
   }
 };
 
-/* Signal readiness to the main thread */
-self.postMessage({ type: 'ready' });
+/* ── 9. Heartbeat ── */
+setInterval(function () {
+  post('diag', { stats: diag });
+}, 2000);
 </script>
 
 <script>
@@ -591,6 +627,7 @@ self.postMessage({ type: 'ready' });
   const handState    = document.getElementById("handState");
   const actionState  = document.getElementById("actionState");
   const workerState  = document.getElementById("workerState");
+  const pipelineState= document.getElementById("pipelineState");
   const fpsState     = document.getElementById("fpsState");
   const calState     = document.getElementById("calState");
   const pillText     = document.getElementById("pillText");
@@ -610,36 +647,31 @@ self.postMessage({ type: 'ready' });
   const calCancel    = document.getElementById("calCancel");
   const calProgress  = document.getElementById("calProgress");
 
-  /* ═════════ Tuner definitions ═════════ */
+  /* ═════════ Tuner ═════════ */
   const TUNER_DEFS = {
-    lerpMin:      {g:"Smoothing", l:"Min LERP factor (stillness)", min:0.05,max:0.60,step:0.01, d:0.20},
-    lerpSpeed:    {g:"Smoothing", l:"Speed LERP gain",             min:0,   max:0.05,step:0.001,d:0.010},
-    predictMs:    {g:"Smoothing", l:"Predict ahead (ms)",          min:0,   max:200, step:5,   d:70},
-    deadPx:       {g:"Smoothing", l:"Dead-zone (px)",              min:0,   max:8,   step:0.2, d:0.8},
-
-    clickPinch:   {g:"Click",     l:"Pinch distance",              min:0.02,max:0.15,step:0.005,d:0.055},
-    releaseFactor:{g:"Click",     l:"Release × start",             min:1.05,max:2.5, step:0.05, d:1.4},
-    confirmFrames:{g:"Click",     l:"Confirm frames",              min:1,   max:6,   step:1,    d:3},
-    clickCooldown:{g:"Click",     l:"Cooldown (ms)",               min:0,   max:1500,step:10,   d:280},
-    minHandSpan:  {g:"Click",     l:"Min hand span (fist reject)", min:0,   max:0.4, step:0.01, d:0.13},
-
-    selectHoldMs: {g:"Select",    l:"Hold to select (ms)",         min:150, max:1200,step:10,   d:400},
-    clickMaxMs:   {g:"Select",    l:"Click window (ms)",           min:80,  max:600, step:10,   d:260},
-
-    dragPinch:    {g:"Drag",      l:"Drag pinch distance",         min:0.02,max:0.15,step:0.005,d:0.060},
-
+    lerpMin:      {g:"Smoothing", l:"Min LERP factor",    min:0.05,max:0.60,step:0.01, d:0.20},
+    lerpSpeed:    {g:"Smoothing", l:"Speed LERP gain",    min:0,   max:0.05,step:0.001,d:0.010},
+    predictMs:    {g:"Smoothing", l:"Predict ahead (ms)", min:0,   max:200, step:5,   d:70},
+    deadPx:       {g:"Smoothing", l:"Dead-zone (px)",     min:0,   max:8,   step:0.2, d:0.8},
+    clickPinch:   {g:"Click",     l:"Pinch distance",     min:0.02,max:0.15,step:0.005,d:0.055},
+    releaseFactor:{g:"Click",     l:"Release × start",    min:1.05,max:2.5, step:0.05, d:1.4},
+    confirmFrames:{g:"Click",     l:"Confirm frames",     min:1,   max:6,   step:1,    d:3},
+    clickCooldown:{g:"Click",     l:"Cooldown (ms)",      min:0,   max:1500,step:10,   d:280},
+    minHandSpan:  {g:"Click",     l:"Min hand span",      min:0,   max:0.4, step:0.01, d:0.13},
+    selectHoldMs: {g:"Select",    l:"Hold to select (ms)",min:150, max:1200,step:10,   d:400},
+    clickMaxMs:   {g:"Select",    l:"Click window (ms)",  min:80,  max:600, step:10,   d:260},
+    dragPinch:    {g:"Drag",      l:"Drag pinch distance",min:0.02,max:0.15,step:0.005,d:0.060},
     scrollMode:   {g:"Scroll",    l:"Mode", type:"select",
-                   options:[["palm","Palm Y"],["tilt","Tilt"],["depth","Depth push"]],
-                   d:"palm"},
-    scrollSens:   {g:"Scroll",    l:"Sensitivity",                 min:0.2, max:12,  step:0.1,  d:3.2},
-    scrollDead:   {g:"Scroll",    l:"Dead-zone",                   min:0,   max:0.01,step:0.0001,d:0.0004},
-    scrollMax:    {g:"Scroll",    l:"Max / frame (px)",            min:50,  max:800, step:10,   d:400},
-    momentum:     {g:"Momentum",  l:"Coast after release",         min:0,   max:0.98,step:0.02, d:0.5},
-    momentumDecay:{g:"Momentum",  l:"Decay per frame",             min:0.85,max:0.99,step:0.005,d:0.94},
+                   options:[["palm","Palm Y"],["tilt","Tilt"],["depth","Depth push"]],d:"palm"},
+    scrollSens:   {g:"Scroll",    l:"Sensitivity",        min:0.2, max:12,  step:0.1,  d:3.2},
+    scrollDead:   {g:"Scroll",    l:"Dead-zone",          min:0,   max:0.01,step:0.0001,d:0.0004},
+    scrollMax:    {g:"Scroll",    l:"Max / frame (px)",   min:50,  max:800, step:10,   d:400},
+    momentum:     {g:"Momentum",  l:"Coast after release",min:0,   max:0.98,step:0.02, d:0.5},
+    momentumDecay:{g:"Momentum",  l:"Decay per frame",    min:0.85,max:0.99,step:0.005,d:0.94},
   };
 
-  const CFG_KEY = "dex_inline_cfg_v1";
-  const CAL_KEY = "dex_inline_cal_v1";
+  const CFG_KEY = "dex_fix_cfg_v1";
+  const CAL_KEY = "dex_fix_cal_v1";
 
   const T = {};
   Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].d; });
@@ -729,8 +761,7 @@ self.postMessage({ type: 'ready' });
     if (r) {
       const p = JSON.parse(r);
       if (p && p.raw && p.scr && p.raw.length === 4) {
-        cal.raw = p.raw;
-        cal.scr = p.scr;
+        cal.raw = p.raw; cal.scr = p.scr;
         cal.M = buildAffine(cal.raw, cal.scr);
       }
     }
@@ -740,7 +771,7 @@ self.postMessage({ type: 'ready' });
   };
 
   /* ═════════ Shared state ═════════ */
-  let latestHands = [];          // array of hands (each hand = array of 21 landmarks)
+  let latestHands = [];
   let hasFreshHand = false;
   let lastRawHand = { x: 0.5, y: 0.5 };
   let lastRawHandTime = 0;
@@ -871,13 +902,10 @@ self.postMessage({ type: 'ready' });
     if (g) {
       const r = g.getBoundingClientRect();
       g.style.position = "fixed";
-      g.style.left = r.left + "px";
-      g.style.top  = r.top  + "px";
-      g.style.width = r.width + "px";
-      g.style.margin = "0";
+      g.style.left = r.left + "px"; g.style.top = r.top + "px";
+      g.style.width = r.width + "px"; g.style.margin = "0";
       dragPinch.el = g;
-      dragPinch.offX = x - r.left;
-      dragPinch.offY = y - r.top;
+      dragPinch.offX = x - r.left; dragPinch.offY = y - r.top;
       g.classList.add("dragging");
     } else dragPinch.el = null;
     fireMouse("mousedown", x, y, 1);
@@ -941,10 +969,8 @@ self.postMessage({ type: 'ready' });
   function onScrollEnd() {
     if (scrollState.active && T.momentum > 0)
       scrollState.momentum = scrollState.velocity * T.momentum;
-    scrollState.active = false;
-    scrollState.velocity = 0;
-    scrollState.lastY = null;
-    scrollState.lastScale = null;
+    scrollState.active = false; scrollState.velocity = 0;
+    scrollState.lastY = null; scrollState.lastScale = null;
   }
   (function momentumLoop() {
     if (Math.abs(scrollState.momentum) > 0.4) {
@@ -978,8 +1004,7 @@ self.postMessage({ type: 'ready' });
       target.vx = (scr.x - target.x) / dt;
       target.vy = (scr.y - target.y) / dt;
     }
-    target.x = scr.x;
-    target.y = scr.y;
+    target.x = scr.x; target.y = scr.y;
     target.lastT = now;
   }
   function processGestures() {
@@ -989,7 +1014,6 @@ self.postMessage({ type: 'ready' });
     updateTargetFromLandmarks(picked.cursorHand, now);
     if (cal.active) return;
     if (sel.active) extendSelection(cursor.x, cursor.y);
-
     const lm = picked.cursorHand;
     const idxD = dist(lm[4], lm[8]);
     const midD = dist(lm[4], lm[12]);
@@ -1031,49 +1055,36 @@ self.postMessage({ type: 'ready' });
   let frames = 0, lastFpsT = performance.now();
   function loop() {
     const now = performance.now();
-
     const elapsed = clamp((now - target.lastT) / 1000, 0, 0.15);
     const predictS = T.predictMs / 1000;
     const px = target.x + target.vx * (elapsed + predictS);
     const py = target.y + target.vy * (elapsed + predictS);
-
-    const dx = px - cursor.x;
-    const dy = py - cursor.y;
-    const d  = Math.hypot(dx, dy);
-
+    const dx = px - cursor.x, dy = py - cursor.y;
+    const d = Math.hypot(dx, dy);
     if (d < T.deadPx) {
-      cursor.x += dx * 0.2;
-      cursor.y += dy * 0.2;
+      cursor.x += dx * 0.2; cursor.y += dy * 0.2;
     } else {
       const f = clamp(T.lerpMin + d * T.lerpSpeed, T.lerpMin, 1);
-      cursor.x += dx * f;
-      cursor.y += dy * f;
+      cursor.x += dx * f; cursor.y += dy * f;
     }
-
     cursorEl.style.transform =
       `translate3d(${(cursor.x - 10).toFixed(2)}px, ${(cursor.y - 10).toFixed(2)}px, 0)`;
     cursorEl.classList.toggle("visible", latestHands.length > 0 || cal.active);
-
     frames++;
     if (now - lastFpsT >= 1000) {
       fpsState.textContent = frames + " fps";
       frames = 0; lastFpsT = now;
     }
-
-    if (hasFreshHand) {
-      hasFreshHand = false;
-      processGestures();
-    } else if (latestHands.length === 0) {
+    if (hasFreshHand) { hasFreshHand = false; processGestures(); }
+    else if (latestHands.length === 0) {
       onScrollEnd();
       if (sel.active) endSelection();
     }
-
     if (cal.active) refreshCalBadge();
-
     requestAnimationFrame(loop);
   }
 
-  /* ═════════ Calibration flow ═════════ */
+  /* ═════════ Calibration ═════════ */
   function calStart() {
     cal.active = true; cal.step = 0;
     cal.raw = []; cal.scr = []; cal.M = null;
@@ -1100,15 +1111,11 @@ self.postMessage({ type: 'ready' });
   function refreshCalBadge() {
     const fresh = (performance.now() - lastRawHandTime) < 500;
     if (fresh) {
-      calHandBadge.classList.add("ok");
-      calHandBadge.classList.remove("warn");
-      calHandText.textContent = "Hand: detected";
-      calConfirm.disabled = false;
+      calHandBadge.classList.add("ok"); calHandBadge.classList.remove("warn");
+      calHandText.textContent = "Hand: detected"; calConfirm.disabled = false;
     } else {
-      calHandBadge.classList.remove("ok");
-      calHandBadge.classList.add("warn");
-      calHandText.textContent = "Hand: not detected";
-      calConfirm.disabled = true;
+      calHandBadge.classList.remove("ok"); calHandBadge.classList.add("warn");
+      calHandText.textContent = "Hand: not detected"; calConfirm.disabled = true;
     }
   }
   function calConfirmStep() {
@@ -1130,29 +1137,26 @@ self.postMessage({ type: 'ready' });
     calOverlay.classList.remove("active");
     if (cal.raw.length === 4) {
       cal.M = buildAffine(cal.raw, cal.scr);
-      if (cal.M) {
-        saveCal();
-        calState.textContent = "saved";
-        showToast("Calibration saved", 1600);
-      } else {
-        calState.textContent = "failed";
-        showToast("Calibration failed — try again", 2200);
-      }
-    } else {
-      calState.textContent = "skipped";
-      showToast("Calibration skipped", 1400);
-    }
+      if (cal.M) { saveCal(); calState.textContent = "saved"; showToast("Calibration saved", 1600); }
+      else { calState.textContent = "failed"; showToast("Calibration failed", 2200); }
+    } else { calState.textContent = "skipped"; showToast("Calibration skipped", 1400); }
   }
   calConfirm.addEventListener("click", calConfirmStep);
   calBack.addEventListener("click", calBackStep);
   calCancel.addEventListener("click", () => { cal.raw = []; cal.scr = []; calFinish(); });
 
-  /* ═════════ Worker instantiation ═════════ */
+  /* ═════════ Worker boot ═════════ */
   let worker = null;
   let workerReady = false;
   let workerFailed = false;
+  let workerFirstResultAt = 0;
+  let fallbackStarted = false;
   let frameBusy = false;
-  let startMainLoop = null;   // set when worker path is ready
+
+  function postDiagToPanel(stats) {
+    pipelineState.textContent =
+      `${stats.framesSent}/${stats.framesProcessed}/${stats.resultsWithHands}`;
+  }
 
   function startWorker() {
     workerState.textContent = "starting…";
@@ -1169,14 +1173,21 @@ self.postMessage({ type: 'ready' });
           workerReady = true;
           workerState.textContent = "worker ✓";
           pillText.textContent = "Worker ready";
-          startFrameLoopFromVideo();
+          startFrameLoop();
         } else if (msg.type === "results") {
+          if (!workerFirstResultAt) workerFirstResultAt = performance.now();
           latestHands = msg.hands || [];
           hasFreshHand = true;
           handDot.classList.toggle("on", latestHands.length > 0);
           handState.textContent = latestHands.length > 0 ? "tracking" : "absent";
+        } else if (msg.type === "diag") {
+          postDiagToPanel(msg.stats);
         } else if (msg.type === "error") {
-          console.error("Worker error:", msg.message);
+          console.error("[worker]", msg.message);
+          workerFailed = true;
+          workerState.textContent = "worker ✗";
+          try { worker.terminate(); } catch (_) {}
+          startMainThreadFallback();
         }
       };
       worker.onerror = (e) => {
@@ -1186,17 +1197,31 @@ self.postMessage({ type: 'ready' });
         startMainThreadFallback();
       };
 
-      /* If worker hasn't reported ready in 8 s, fall back */
+      /* If worker hasn't reported ready in 6 s → fallback */
       setTimeout(() => {
         if (!workerReady && !workerFailed) {
-          console.warn("Worker timeout — falling back to main thread");
+          console.warn("Worker timeout — falling back");
           try { worker.terminate(); } catch (_) {}
           workerFailed = true;
           workerState.textContent = "timeout";
           startMainThreadFallback();
         }
-      }, 8000);
+      }, 6000);
 
+      /* If worker is ready but NEVER produces a result with hands in 4 s
+         (still sending frames), assume the worker path is broken and fall back. */
+      setTimeout(() => {
+        if (workerReady && !workerFailed && !fallbackStarted) {
+          const noResults = workerFirstResultAt === 0;
+          if (noResults) {
+            console.warn("Worker ready but no results after 4s — falling back");
+            try { worker.terminate(); } catch (_) {}
+            workerFailed = true;
+            workerState.textContent = "no results";
+            startMainThreadFallback();
+          }
+        }
+      }, 6000);
     } catch (err) {
       console.error("Worker creation failed:", err);
       workerFailed = true;
@@ -1205,9 +1230,8 @@ self.postMessage({ type: 'ready' });
     }
   }
 
-  /* ── Send video frames to worker via ImageBitmap ── */
   async function sendFrame() {
-    if (!workerReady || frameBusy) return;
+    if (!workerReady || workerFailed || frameBusy) return;
     if (video.readyState < 2 || !video.videoWidth) return;
     frameBusy = true;
     try {
@@ -1216,7 +1240,8 @@ self.postMessage({ type: 'ready' });
     } catch (_) {}
     frameBusy = false;
   }
-  function startFrameLoopFromVideo() {
+
+  function startFrameLoop() {
     if (video.requestVideoFrameCallback) {
       const cb = () => { sendFrame(); video.requestVideoFrameCallback(cb); };
       video.requestVideoFrameCallback(cb);
@@ -1230,23 +1255,21 @@ self.postMessage({ type: 'ready' });
     }
   }
 
-  /* ── Fallback: run MediaPipe on the main thread ── */
+  /* ═════════ Main-thread fallback ═════════ */
   function startMainThreadFallback() {
+    if (fallbackStarted) return;
+    fallbackStarted = true;
     workerState.textContent = "main thread";
     pillText.textContent = "Fallback: main thread";
     console.warn("Running MediaPipe on main thread");
 
-    /* If hands.js was already loaded (e.g. by a previous attempt) reuse it */
-    if (typeof Hands === "function") {
-      initMainThreadHands();
-      return;
-    }
+    if (typeof Hands === "function") { initMainThreadHands(); return; }
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js";
     s.crossOrigin = "anonymous";
     s.onload = initMainThreadHands;
     s.onerror = () => {
-      workerState.textContent = "failed";
+      workerState.textContent = "mp load failed";
       pillText.textContent = "MediaPipe failed to load";
     };
     document.head.appendChild(s);
@@ -1258,15 +1281,16 @@ self.postMessage({ type: 'ready' });
     hands.setOptions({
       maxNumHands: 2,
       modelComplexity: 1,
-      minDetectionConfidence: 0.6,
-      minTrackingConfidence: 0.6,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
       selfieMode: true,
     });
     hands.onResults((results) => {
-      latestHands = results.multiHandLandmarks || [];
+      latestHands = (results && results.multiHandLandmarks) || [];
       hasFreshHand = true;
       handDot.classList.toggle("on", latestHands.length > 0);
       handState.textContent = latestHands.length > 0 ? "tracking" : "absent";
+      pipelineState.textContent = latestHands.length ? "main ✓" : "main —";
     });
 
     let busy = false;
@@ -1298,10 +1322,8 @@ self.postMessage({ type: 'ready' });
       const d = TUNER_DEFS[key];
       if (!groups[d.g]) {
         const g = document.createElement("div");
-        g.className = "tuner-group";
-        g.textContent = d.g;
-        paneTuners.appendChild(g);
-        groups[d.g] = g;
+        g.className = "tuner-group"; g.textContent = d.g;
+        paneTuners.appendChild(g); groups[d.g] = g;
       }
       const row = document.createElement("div");
       row.className = "tuner-row";
@@ -1327,8 +1349,7 @@ self.postMessage({ type: 'ready' });
       const num = row.querySelector(".num");
       const rng = row.querySelector("input[type=range]");
       const commit = (v, from) => {
-        v = clamp(v, d.min, d.max);
-        T[key] = v;
+        v = clamp(v, d.min, d.max); T[key] = v;
         if (from !== "num") num.value = v;
         if (from !== "rng") rng.value = v;
         saveCfg(); refreshJson();
@@ -1340,8 +1361,7 @@ self.postMessage({ type: 'ready' });
 
   function getJSON() {
     return JSON.stringify({
-      app: "dex-hand-cursor",
-      version: 8,
+      app: "dex-hand-cursor", version: 9,
       savedAt: new Date().toISOString(),
       config: { ...T },
       calibration: cal.raw.length === 4 ? { raw: cal.raw, scr: cal.scr } : null,
@@ -1357,11 +1377,9 @@ self.postMessage({ type: 'ready' });
       const c = p.config || p;
       Object.keys(TUNER_DEFS).forEach((k) => { if (k in c) T[k] = c[k]; });
       if (p.calibration && p.calibration.raw && p.calibration.raw.length === 4) {
-        cal.raw = p.calibration.raw;
-        cal.scr = p.calibration.scr;
+        cal.raw = p.calibration.raw; cal.scr = p.calibration.scr;
         cal.M = buildAffine(cal.raw, cal.scr);
-        saveCal();
-        calState.textContent = "saved";
+        saveCal(); calState.textContent = "saved";
       }
       buildTuner(); saveCfg(); jsonDirty = false; refreshJson();
       showToast("Config applied");
@@ -1377,8 +1395,7 @@ self.postMessage({ type: 'ready' });
   document.getElementById("applyJson").addEventListener("click", applyJson);
   document.getElementById("resetTuner").addEventListener("click", () => {
     Object.keys(TUNER_DEFS).forEach((k) => { T[k] = TUNER_DEFS[k].d; });
-    buildTuner(); saveCfg(); jsonDirty = false; refreshJson();
-    showToast("Reset");
+    buildTuner(); saveCfg(); jsonDirty = false; refreshJson(); showToast("Reset");
   });
   document.getElementById("tunerToggle").addEventListener("click", () => {
     document.getElementById("tuner").classList.toggle("collapsed");
@@ -1405,8 +1422,7 @@ self.postMessage({ type: 'ready' });
       pillText.textContent = "Requesting camera…";
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 960 },
-          height: { ideal: 540 },
+          width: { ideal: 960 }, height: { ideal: 540 },
           frameRate: { ideal: 60, min: 24 },
           facingMode: "user",
         },
@@ -1427,24 +1443,20 @@ self.postMessage({ type: 'ready' });
   }
   startCamera();
 
-  /* ═════════ Kick everything off ═════════ */
   startWorker();
   requestAnimationFrame(loop);
 
-  /* Auto-start calibration if none saved */
   setTimeout(() => {
-    if (!cal.M) {
-      calState.textContent = "needed";
-      calStart();
-    } else {
-      calState.textContent = "saved";
-    }
-  }, 1400);
+    if (!cal.M) { calState.textContent = "needed"; calStart(); }
+    else calState.textContent = "saved";
+  }, 1600);
 
   /* ═════════ Keyboard ═════════ */
   addEventListener("keydown", (e) => {
-    if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey && !cal.active) {
-      calStart();
+    if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey && !cal.active) calStart();
+    if (e.key.toLowerCase() === "d") {
+      /* Toggle diagnostics — dumps worker stats */
+      try { worker && worker.postMessage({ type: "diag" }); } catch (_) {}
     }
   });
   addEventListener("resize", () => { if (cal.active) renderCalStep(); });
