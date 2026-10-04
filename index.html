@@ -3,1782 +3,1180 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>DeX Hand Cursor · Calibrated</title>
+<title>DeX Hand Cursor · AB-Filter</title>
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer">
 <style>
-  :root {
-    --cyan:#00e6ff; --pink:#ff5078; --gold:#ffc83c; --green:#22e07a;
-    --purple:#a855f7; --orange:#ff8a3d; --blue:#3b82f6; --red:#ef4444;
-    --bg:#0b0e14; --text:#e0e6f0; --muted:#8792a8;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { background:var(--bg); }
-  html { scroll-behavior:auto !important; }
-  body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    color:var(--text);
-    min-height: 260vh;
-    overflow-x: hidden;
-    cursor: none;
-  }
+  :root{--cyan:#00e6ff;--pink:#ff5078;--gold:#ffc83c;--green:#22e07a;
+        --purple:#a855f7;--orange:#ff8a3d;--blue:#3b82f6;--red:#ef4444;
+        --bg:#0b0e14;--text:#e0e6f0;--muted:#8792a8}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg)}
+  html{scroll-behavior:auto!important}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       color:var(--text);min-height:260vh;overflow-x:hidden;cursor:none}
+  body.calibrating,body.calibrating *{cursor:auto!important}
+  body.calibrating #cursor{display:none!important}
+  #video{position:fixed;left:-10000px;top:0;width:640px;height:480px;opacity:0;pointer-events:none}
 
-  #video {
-    position:fixed; left:-10000px; top:0;
-    width:640px; height:480px; opacity:0; pointer-events:none;
-  }
+  /* cursor */
+  #cursor{position:fixed;left:50%;top:50%;width:16px;height:16px;border-radius:50%;
+    background:#fff;border:2px solid rgba(0,0,0,.85);pointer-events:none;
+    z-index:2147483647;transform:translate(-50%,-50%);opacity:0;
+    transition:opacity .1s;will-change:left,top}
+  #cursor.visible{opacity:1}
+  #cursor.selecting{width:20px;height:20px;background:transparent;
+    border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55) inset}
 
-  /* ── cursor ───────────────────────────────────── */
-  #cursor {
-    position:fixed; left:50%; top:50%;
-    width:20px; height:20px; border-radius:50%;
-    background:#fff; border:2px solid rgba(0,0,0,.8);
-    pointer-events:none;
-    z-index: 2147483647;
-    transform:translate(-50%,-50%);
-    opacity:0;
-    transition:opacity .12s, width .1s, height .1s, background .1s;
-    will-change:left, top;
-  }
-  #cursor.visible { opacity:1; }
-  #cursor.selecting {
-    width:24px; height:24px;
-    background:transparent;
-    border:2.5px solid #fff;
-    box-shadow:0 0 0 1px rgba(0,0,0,.55) inset;
-  }
-
-  /* ── calibration overlay ──────────────────────── */
-  .cal-overlay {
-    position:fixed; inset:0;
-    z-index: 2147483646;
-    background:radial-gradient(circle at 50% 50%,
-                rgba(6,9,14,.55) 0%,
-                rgba(6,9,14,.82) 70%);
-    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center;
-    padding:40px;
-    pointer-events:auto;
-    opacity:1;
-    transition:opacity .35s;
-  }
-  .cal-overlay.hidden { opacity:0; pointer-events:none; }
-
-  .cal-head {
-    position:absolute; top:40px; left:50%;
-    transform:translateX(-50%);
-    text-align:center;
-    pointer-events:none;
-  }
-  .cal-head h2 {
-    font-size:20px; font-weight:700;
-    letter-spacing:.4px;
+  /* calibration */
+  .cal-overlay{position:fixed;inset:0;z-index:2147483646;background:rgba(4,6,10,.95);
+    display:none;flex-direction:column;align-items:center;justify-content:center}
+  .cal-overlay.active{display:flex}
+  .cal-panel{position:absolute;top:0;left:0;right:0;padding:28px 40px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
+  .cal-panel h2{font-size:22px;font-weight:700;letter-spacing:.4px;
     background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-    margin-bottom:8px;
-  }
-  .cal-head p {
-    font-size:12.5px; color:var(--muted);
-    letter-spacing:.3px; max-width:480px;
-    line-height:1.6;
-  }
-  .cal-head .cal-count {
-    display:inline-flex; align-items:center; gap:6px;
-    margin-top:12px;
-    padding:6px 14px;
-    background:rgba(0,230,255,.1);
-    border:1px solid rgba(0,230,255,.3);
-    border-radius:999px;
-    font-size:11.5px; font-weight:700;
-    letter-spacing:.8px; text-transform:uppercase;
-    color:var(--cyan);
-  }
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .cal-panel .cal-sub{font-size:13px;color:var(--muted);max-width:560px;
+    text-align:center;line-height:1.65}
+  .cal-panel .cal-sub b{color:#c8d2e6}
+  .cal-status{display:flex;gap:10px;align-items:center;margin-top:6px}
+  .cal-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+    border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.6px;
+    text-transform:uppercase;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);color:var(--muted);
+    transition:background .15s,color .15s,border-color .15s}
+  .cal-badge.ok{background:rgba(34,224,122,.12);border-color:rgba(34,224,122,.5);color:var(--green)}
+  .cal-badge.warn{background:rgba(255,80,120,.12);border-color:rgba(255,80,120,.5);color:var(--pink)}
+  .cal-badge i{font-size:10px}
 
-  /* target dot, absolutely positioned by JS */
-  .cal-target {
-    position:absolute;
-    width:90px; height:90px;
-    transform:translate(-50%,-50%);
-    pointer-events:none;
-    transition:left .3s ease, top .3s ease;
-  }
-  .cal-target .ring {
-    position:absolute; inset:0;
-    border-radius:50%;
-    border:2.5px solid var(--cyan);
-    box-shadow:0 0 24px rgba(0,230,255,.55),
-               inset 0 0 24px rgba(0,230,255,.25);
-    animation:cal-pulse 1.5s ease-in-out infinite;
-  }
-  .cal-target .ring.outer {
-    inset:-14px;
-    border-width:1.5px;
-    opacity:.4;
-    animation-delay:.3s;
-  }
-  .cal-target .core {
-    position:absolute; inset:35px;
-    border-radius:50%;
-    background:#fff;
-    box-shadow:0 0 22px rgba(255,255,255,.9);
-  }
-  .cal-target .crosshair::before,
-  .cal-target .crosshair::after {
-    content:''; position:absolute;
-    background:rgba(255,255,255,.85);
-  }
-  .cal-target .crosshair::before {
-    left:50%; top:-22px; width:2px; height:16px;
-    transform:translateX(-50%);
-  }
-  .cal-target .crosshair::after {
-    left:50%; bottom:-22px; width:2px; height:16px;
-    transform:translateX(-50%);
-  }
-  @keyframes cal-pulse {
-    0%,100% { transform:scale(1); opacity:1; }
-    50%     { transform:scale(1.18); opacity:.55; }
-  }
+  .cal-target{position:absolute;width:80px;height:80px;transform:translate(-50%,-50%);
+    pointer-events:none;transition:opacity .25s}
+  .cal-target .ring{position:absolute;inset:0;border-radius:50%;
+    border:2.5px solid var(--cyan);box-shadow:0 0 26px rgba(0,230,255,.55),
+    inset 0 0 26px rgba(0,230,255,.25);animation:cal-pulse 1.4s ease-in-out infinite}
+  .cal-target .ring.outer{inset:-16px;border-width:1.5px;opacity:.35;animation-delay:.4s}
+  .cal-target .core{position:absolute;inset:32px;border-radius:50%;background:#fff;
+    box-shadow:0 0 22px rgba(255,255,255,.9)}
+  @keyframes cal-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.6}}
+  .cal-target.captured .ring{border-color:var(--green);box-shadow:0 0 40px rgba(34,224,122,.9);animation:none}
+  .cal-target.captured .core{background:var(--green)}
 
-  .cal-target.captured .ring {
-    border-color:var(--green);
-    box-shadow:0 0 40px rgba(34,224,122,.9);
-    animation:none;
-  }
-  .cal-target.captured .core { background:var(--green); }
+  .cal-actions{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);
+    display:flex;gap:14px;pointer-events:auto}
+  .cal-btn{padding:18px 44px;font-size:15px;font-weight:800;letter-spacing:1.2px;
+    text-transform:uppercase;border-radius:14px;border:none;cursor:pointer;
+    display:inline-flex;align-items:center;gap:10px;
+    transition:transform .12s,filter .12s,box-shadow .12s;
+    box-shadow:0 12px 34px rgba(0,230,255,.3);
+    background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111a}
+  .cal-btn:not(:disabled):hover{transform:translateY(-2px);filter:brightness(1.08);
+    box-shadow:0 16px 40px rgba(0,230,255,.45)}
+  .cal-btn:not(:disabled):active{transform:scale(.96)}
+  .cal-btn:disabled{background:rgba(255,255,255,.06);color:#4d586d;box-shadow:none;
+    cursor:not-allowed;border:1px solid rgba(255,255,255,.08)}
+  .cal-btn.ghost{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);box-shadow:none;padding:18px 26px;font-size:12px}
+  .cal-btn.ghost:not(:disabled):hover{color:var(--pink);border-color:rgba(255,80,120,.4);
+    filter:none;transform:none}
+  .cal-btn i{font-size:15px}
+  .cal-progress{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);
+    display:flex;gap:10px}
+  .cal-progress .step{width:50px;height:6px;border-radius:999px;
+    background:rgba(255,255,255,.1);transition:background .3s,box-shadow .3s}
+  .cal-progress .step.done{background:var(--green);box-shadow:0 0 12px rgba(34,224,122,.7)}
+  .cal-progress .step.current{background:var(--cyan);box-shadow:0 0 12px rgba(0,230,255,.7);
+    animation:cal-pulse 1.2s ease-in-out infinite}
 
-  /* progress pills */
-  .cal-progress {
-    position:absolute; bottom:110px; left:50%;
-    transform:translateX(-50%);
-    display:flex; gap:10px;
-    pointer-events:none;
-  }
-  .cal-progress .step {
-    width:44px; height:6px;
-    border-radius:999px;
-    background:rgba(255,255,255,.1);
-    transition:background .3s, box-shadow .3s;
-  }
-  .cal-progress .step.done {
-    background:var(--green);
-    box-shadow:0 0 12px rgba(34,224,122,.7);
-  }
-  .cal-progress .step.current {
-    background:var(--cyan);
-    box-shadow:0 0 12px rgba(0,230,255,.7);
-    animation:cal-pulse 1.2s ease-in-out infinite;
-  }
-
-  .cal-hint {
-    position:absolute; bottom:60px; left:50%;
-    transform:translateX(-50%);
-    font-size:11.5px; color:var(--muted);
-    letter-spacing:.3px;
-    display:flex; align-items:center; gap:8px;
-    padding:8px 16px;
-    background:rgba(12,16,24,.75);
-    border:1px solid rgba(255,255,255,.08);
-    border-radius:999px;
-    pointer-events:none;
-    transition:background .3s, border-color .3s, color .3s;
-  }
-  .cal-hint.ready {
-    background:rgba(0,230,255,.12);
-    border-color:rgba(0,230,255,.4);
-    color:var(--cyan);
-  }
-  .cal-hint i { color:var(--cyan); }
-
-  .cal-skip {
-    position:absolute; bottom:20px; left:50%;
-    transform:translateX(-50%);
-    padding:8px 18px;
-    font-size:11px; font-weight:700;
-    letter-spacing:.4px; text-transform:uppercase;
-    background:rgba(255,255,255,.04);
-    border:1px solid rgba(255,255,255,.1);
-    color:var(--muted);
-    border-radius:9px;
-    cursor:pointer;
-    transition:background .15s, color .15s, border-color .15s;
-  }
-  .cal-skip:hover {
-    background:rgba(255,80,120,.08);
-    border-color:rgba(255,80,120,.4);
-    color:var(--pink);
-  }
-
-  /* ── side panel ───────────────────────────────── */
-  .panel {
-    position:fixed; top:18px; left:18px; z-index:100;
-    background:rgba(12,16,24,.88);
-    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-    border:1px solid rgba(255,255,255,.09);
-    border-radius:16px; padding:16px 20px;
-    width:300px; pointer-events:none;
-    font-size:12px;
-    display:flex; flex-direction:column; gap:12px;
-  }
-  .panel h1 {
-    font-size:15px; font-weight:700;
-    display:flex; align-items:center; gap:8px;
+  /* panel */
+  .panel{position:fixed;top:18px;left:18px;z-index:100;background:rgba(12,16,24,.88);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px 20px;
+    width:300px;pointer-events:none;font-size:12px;display:flex;flex-direction:column;gap:12px}
+  .panel h1{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;
     background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent;
-  }
-  .panel h1 i { -webkit-text-fill-color:var(--cyan); }
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .panel h1 i{-webkit-text-fill-color:var(--cyan)}
+  .status-grid{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 12px;
+    background:rgba(255,255,255,.03);border-radius:10px;
+    border:1px solid rgba(255,255,255,.05);font-size:11.5px}
+  .status-grid .k{color:var(--muted);font-weight:600}
+  .status-grid .v{color:var(--text);font-weight:700;text-align:right}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3a4258;
+    margin-right:6px;vertical-align:middle;transition:background .15s,box-shadow .15s}
+  .dot.on{background:var(--green);box-shadow:0 0 8px rgba(34,224,122,.8)}
+  #inputState{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;
+    border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.4px;
+    text-transform:uppercase;background:rgba(255,255,255,.06);color:var(--muted);
+    transition:background .2s,color .2s}
+  #inputState.hand{background:rgba(0,230,255,.14);color:var(--cyan)}
+  #inputState.mouse{background:rgba(168,85,247,.16);color:var(--purple)}
+  #inputState i{font-size:10px}
+  .panel .hint{font-size:11px;color:var(--muted);line-height:1.6}
+  .panel .hint b{color:#c8d2e6;font-weight:600}
+  .panel .hint i{color:var(--cyan);width:14px;text-align:center;margin-right:4px}
+  .panel .hint kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    border-radius:4px;padding:0 5px;font-family:inherit;font-size:10.5px}
 
-  .status-grid {
-    display:grid; grid-template-columns:1fr auto;
-    gap:6px 10px; padding:10px 12px;
-    background:rgba(255,255,255,.03);
-    border-radius:10px; border:1px solid rgba(255,255,255,.05);
-    font-size:11.5px;
-  }
-  .status-grid .k { color:var(--muted); font-weight:600; }
-  .status-grid .v { color:var(--text); font-weight:700; text-align:right; }
+  /* tuner */
+  .tuner{position:fixed;top:18px;right:18px;z-index:150;width:360px;
+    max-height:calc(100vh - 36px);background:rgba(12,16,24,.94);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.09);border-radius:16px;
+    display:flex;flex-direction:column;overflow:hidden}
+  .tuner.collapsed .tuner-body,.tuner.collapsed .tuner-foot,
+  .tuner.collapsed .tuner-tabs{display:none}
+  .tuner-head{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;font-size:13px;font-weight:700;letter-spacing:.3px;
+    border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+  .tuner-head .title{display:flex;align-items:center;gap:8px}
+  .tuner-head .title i{color:var(--cyan)}
+  .icon-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    color:var(--text);width:28px;height:28px;border-radius:8px;cursor:pointer;
+    display:grid;place-items:center;transition:background .15s,color .15s,border-color .15s;
+    font-size:11.5px}
+  .icon-btn:hover{background:rgba(0,230,255,.1);border-color:rgba(0,230,255,.4);color:var(--cyan)}
+  .tuner-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.06);
+    flex-shrink:0;padding:0 10px}
+  .tuner-tabs button{background:none;border:none;color:var(--muted);padding:10px 14px;
+    font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+    cursor:pointer;border-bottom:2px solid transparent;
+    transition:color .15s,border-color .15s;display:inline-flex;align-items:center;gap:6px}
+  .tuner-tabs button:hover{color:var(--text)}
+  .tuner-tabs button.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+  .tuner-body{padding:8px 16px 12px;overflow-y:auto;overflow-x:hidden;flex:1}
+  .tuner-body::-webkit-scrollbar{width:8px}
+  .tuner-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
+  .tuner-body.hidden{display:none}
+  .tuner-group{font-size:10.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--muted);margin:14px 0 6px;display:flex;align-items:center;gap:8px}
+  .tuner-group:first-child{margin-top:6px}
+  .tuner-group::after{content:'';flex:1;height:1px;
+    background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
+  .tuner-row{display:grid;grid-template-columns:1fr 82px;gap:6px 10px;
+    align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.035)}
+  .tuner-row:last-child{border-bottom:none}
+  .tuner-row label{font-size:11.5px;color:#b8c2d6;font-weight:500;letter-spacing:.2px}
+  .tuner-row .num{width:100%;background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);color:var(--text);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;
+    padding:6px;border-radius:7px;text-align:right;font-weight:600;
+    transition:border-color .15s,background .15s}
+  .tuner-row .num:hover{border-color:rgba(0,230,255,.4)}
+  .tuner-row .num:focus{outline:none;border-color:var(--cyan);background:rgba(0,230,255,.05)}
+  .tuner-row input[type=range]{grid-column:1/-1;-webkit-appearance:none;appearance:none;
+    width:100%;height:4px;border-radius:999px;background:rgba(255,255,255,.09);
+    outline:none;margin-top:2px}
+  .tuner-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
+    width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #0b0e14;
+    transition:transform .12s;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+  .tuner-row input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.18)}
+  .tuner-row input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
+    background:#fff;border:2px solid #0b0e14}
+  .tuner-row select{grid-column:1/-1;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);color:var(--text);font-size:11.5px;
+    padding:8px 10px;border-radius:8px;font-weight:600;letter-spacing:.3px}
+  .tuner-row select:focus{outline:none;border-color:var(--cyan)}
+  .json-area{width:100%;min-height:320px;background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.07);border-radius:10px;color:#8be9fd;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;
+    line-height:1.5;padding:12px;resize:vertical;outline:none;letter-spacing:.2px}
+  .json-area:focus{border-color:var(--cyan)}
+  .json-help{font-size:10.5px;color:var(--muted);letter-spacing:.3px;
+    margin-bottom:8px;line-height:1.5}
+  .tuner-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);
+    display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
+  .tuner-foot button{flex:1 1 auto;min-width:88px;padding:9px 12px;font-size:11.5px;
+    font-weight:700;letter-spacing:.3px;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);color:var(--text);border-radius:9px;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    transition:background .15s,border-color .15s,color .15s}
+  .tuner-foot button:hover{background:rgba(0,230,255,.08);
+    border-color:rgba(0,230,255,.4);color:var(--cyan)}
+  .tuner-foot button.primary{background:linear-gradient(135deg,var(--cyan),var(--blue));
+    border:none;color:#06111a}
+  .tuner-foot button.primary:hover{filter:brightness(1.1);color:#06111a}
 
-  .dot {
-    display:inline-block; width:8px; height:8px;
-    border-radius:50%; background:#3a4258;
-    margin-right:6px; vertical-align:middle;
-    transition:background .15s, box-shadow .15s;
-  }
-  .dot.on { background:var(--green); box-shadow:0 0 8px rgba(34,224,122,.8); }
+  .status-pill{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;
+    display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;
+    background:rgba(12,16,24,.85);backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);
+    font-size:11.5px;letter-spacing:.3px;color:var(--muted);pointer-events:none}
+  .status-pill i{color:var(--cyan)}
+  .status-pill .live-dot{width:8px;height:8px;border-radius:50%;background:var(--red);
+    box-shadow:0 0 10px var(--red);animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .toast{position:fixed;bottom:78px;left:50%;transform:translate(-50%,20px);
+    padding:10px 20px;border-radius:12px;background:rgba(12,16,24,.92);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.1);color:var(--text);font-size:12px;
+    letter-spacing:.3px;opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;z-index:2147483645}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast i{color:var(--cyan);margin-right:6px}
 
-  #inputState {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:2px 8px; border-radius:999px;
-    font-size:10.5px; font-weight:700;
-    letter-spacing:.4px; text-transform:uppercase;
-    background:rgba(255,255,255,.06); color:var(--muted);
-    transition:background .2s, color .2s;
-  }
-  #inputState.hand  { background:rgba(0,230,255,.14);  color:var(--cyan); }
-  #inputState.mouse { background:rgba(168,85,247,.16); color:var(--purple); }
-  #inputState i     { font-size:10px; }
-
-  .panel .hint { font-size:11px; color:var(--muted); line-height:1.6; }
-  .panel .hint b { color:#c8d2e6; font-weight:600; }
-  .panel .hint i { color:var(--cyan); width:14px; text-align:center; margin-right:4px; }
-  .panel .hint kbd {
-    background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.14);
-    border-radius:4px; padding:0 5px;
-    font-family:inherit; font-size:10.5px;
-  }
-
-  /* ── tuner ────────────────────────────────────── */
-  .tuner {
-    position:fixed; top:18px; right:18px; z-index:150;
-    width:360px; max-height:calc(100vh - 36px);
-    background:rgba(12,16,24,.94);
-    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-    border:1px solid rgba(255,255,255,.09);
-    border-radius:16px;
-    display:flex; flex-direction:column;
-    overflow:hidden;
-  }
-  .tuner.collapsed .tuner-body,
-  .tuner.collapsed .tuner-foot,
-  .tuner.collapsed .tuner-tabs { display:none; }
-
-  .tuner-head {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 16px;
-    font-size:13px; font-weight:700; letter-spacing:.3px;
-    border-bottom:1px solid rgba(255,255,255,.06);
-    flex-shrink:0;
-  }
-  .tuner-head .title { display:flex; align-items:center; gap:8px; }
-  .tuner-head .title i { color:var(--cyan); }
-
-  .icon-btn {
-    background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.1);
-    color:var(--text);
-    width:28px; height:28px;
-    border-radius:8px; cursor:pointer;
-    display:grid; place-items:center;
-    transition:background .15s, color .15s, border-color .15s;
-    font-size:11.5px;
-  }
-  .icon-btn:hover {
-    background:rgba(0,230,255,.1);
-    border-color:rgba(0,230,255,.4);
-    color:var(--cyan);
-  }
-
-  .tuner-tabs {
-    display:flex; border-bottom:1px solid rgba(255,255,255,.06);
-    flex-shrink:0; padding:0 10px;
-  }
-  .tuner-tabs button {
-    background:none; border:none; color:var(--muted);
-    padding:10px 14px; font-size:11.5px; font-weight:700;
-    letter-spacing:.6px; text-transform:uppercase;
-    cursor:pointer; border-bottom:2px solid transparent;
-    transition:color .15s, border-color .15s;
-    display:inline-flex; align-items:center; gap:6px;
-  }
-  .tuner-tabs button:hover { color:var(--text); }
-  .tuner-tabs button.active {
-    color:var(--cyan); border-bottom-color:var(--cyan);
-  }
-
-  .tuner-body {
-    padding:8px 16px 12px;
-    overflow-y:auto; overflow-x:hidden; flex:1;
-  }
-  .tuner-body::-webkit-scrollbar { width:8px; }
-  .tuner-body::-webkit-scrollbar-thumb {
-    background:rgba(255,255,255,.12); border-radius:4px;
-  }
-  .tuner-body.hidden { display:none; }
-
-  .tuner-group {
-    font-size:10.5px; font-weight:700;
-    letter-spacing:1.4px; text-transform:uppercase;
-    color:var(--muted);
-    margin:14px 0 6px;
-    display:flex; align-items:center; gap:8px;
-  }
-  .tuner-group:first-child { margin-top:6px; }
-  .tuner-group::after {
-    content:''; flex:1; height:1px;
-    background:linear-gradient(90deg,rgba(255,255,255,.1),transparent);
-  }
-  .tuner-row {
-    display:grid; grid-template-columns:1fr 82px;
-    gap:6px 10px; align-items:center;
-    padding:8px 0;
-    border-bottom:1px solid rgba(255,255,255,.035);
-  }
-  .tuner-row:last-child { border-bottom:none; }
-  .tuner-row label {
-    font-size:11.5px; color:#b8c2d6;
-    font-weight:500; letter-spacing:.2px;
-  }
-  .tuner-row .num {
-    width:100%;
-    background:rgba(255,255,255,.045);
-    border:1px solid rgba(255,255,255,.09);
-    color:var(--text);
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size:11px; padding:6px;
-    border-radius:7px; cursor:pointer; text-align:right;
-    font-weight:600;
-    transition:border-color .15s, background .15s;
-  }
-  .tuner-row .num:hover { border-color:rgba(0,230,255,.4); }
-  .tuner-row .num:focus {
-    outline:none; border-color:var(--cyan);
-    background:rgba(0,230,255,.05);
-  }
-  .tuner-row input[type=range] {
-    grid-column:1 / -1;
-    -webkit-appearance:none; appearance:none;
-    width:100%; height:4px; border-radius:999px;
-    background:rgba(255,255,255,.09);
-    outline:none; cursor:pointer; margin-top:2px;
-  }
-  .tuner-row input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance:none;
-    width:16px; height:16px; border-radius:50%;
-    background:#fff; border:2px solid #0b0e14;
-    cursor:pointer;
-    transition:transform .12s;
-    box-shadow:0 0 0 1px rgba(255,255,255,.2);
-  }
-  .tuner-row input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.18); }
-  .tuner-row input[type=range]::-moz-range-thumb {
-    width:16px; height:16px; border-radius:50%;
-    background:#fff; border:2px solid #0b0e14; cursor:pointer;
-  }
-  .tuner-row select {
-    grid-column:1 / -1;
-    background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.1);
-    color:var(--text); font-size:11.5px;
-    padding:8px 10px; border-radius:8px;
-    cursor:pointer; font-weight:600; letter-spacing:.3px;
-  }
-  .tuner-row select:hover { border-color:rgba(0,230,255,.4); }
-  .tuner-row select:focus { outline:none; border-color:var(--cyan); }
-
-  .json-area {
-    width:100%; min-height:320px;
-    background:rgba(0,0,0,.35);
-    border:1px solid rgba(255,255,255,.07);
-    border-radius:10px; color:#8be9fd;
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size:11px; line-height:1.5;
-    padding:12px; resize:vertical;
-    cursor:text; outline:none; letter-spacing:.2px;
-  }
-  .json-area:focus { border-color:var(--cyan); }
-  .json-help {
-    font-size:10.5px; color:var(--muted);
-    letter-spacing:.3px; margin-bottom:8px; line-height:1.5;
-  }
-
-  .tuner-foot {
-    padding:12px 16px;
-    border-top:1px solid rgba(255,255,255,.06);
-    display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap;
-  }
-  .tuner-foot button {
-    flex:1 1 auto; min-width:90px;
-    padding:9px 12px;
-    font-size:11.5px; font-weight:700; letter-spacing:.3px;
-    background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.1);
-    color:var(--text); border-radius:9px; cursor:pointer;
-    display:inline-flex; align-items:center; justify-content:center; gap:6px;
-    transition:background .15s, border-color .15s, color .15s;
-  }
-  .tuner-foot button:hover {
-    background:rgba(0,230,255,.08);
-    border-color:rgba(0,230,255,.4);
-    color:var(--cyan);
-  }
-  .tuner-foot button.primary {
-    background:linear-gradient(135deg,var(--cyan),var(--blue));
-    border:none; color:#06111a;
-  }
-  .tuner-foot button.primary:hover { filter:brightness(1.1); color:#06111a; }
-
-  /* ── status pill / toast ──────────────────────── */
-  .status-pill {
-    position:fixed; bottom:20px; left:50%;
-    transform:translateX(-50%); z-index:100;
-    display:flex; align-items:center; gap:8px;
-    padding:8px 16px; border-radius:999px;
-    background:rgba(12,16,24,.85);
-    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.08);
-    font-size:11.5px; letter-spacing:.3px;
-    color:var(--muted); pointer-events:none;
-  }
-  .status-pill i { color:var(--cyan); }
-  .status-pill .live-dot {
-    width:8px; height:8px; border-radius:50%;
-    background:var(--red);
-    box-shadow:0 0 10px var(--red);
-    animation:pulse 1.4s ease-in-out infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
-
-  .toast {
-    position:fixed; bottom:78px; left:50%;
-    transform:translate(-50%, 20px);
-    padding:10px 20px; border-radius:12px;
-    background:rgba(12,16,24,.92);
-    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-    border:1px solid rgba(255,255,255,.1);
-    color:var(--text); font-size:12px; letter-spacing:.3px;
-    opacity:0; pointer-events:none;
-    transition:opacity .25s, transform .25s;
-    z-index: 2147483645;
-  }
-  .toast.show { opacity:1; transform:translate(-50%, 0); }
-  .toast i { color:var(--cyan); margin-right:6px; }
-
-  /* ── content ──────────────────────────────────── */
-  main { max-width:960px; margin:0 auto; padding:120px 32px 200px; }
-  h2.section {
-    font-size:13px; font-weight:700;
-    letter-spacing:1.2px; text-transform:uppercase;
-    color:var(--muted); margin:40px 0 18px;
-    display:flex; align-items:center; gap:10px;
-  }
-  h2.section::after {
-    content:''; flex:1; height:1px;
-    background:linear-gradient(90deg,rgba(255,255,255,.1),transparent);
-  }
-
-  .target-grid {
-    display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
-  }
-  @media (max-width:900px) { .target-grid { grid-template-columns:repeat(2,1fr); } }
-
-  .target {
-    position:relative; aspect-ratio:1/1;
-    border-radius:20px;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:8px;
-    background:rgba(255,255,255,.035);
-    border:1.5px solid rgba(255,255,255,.09);
-    color:var(--text); user-select:none; cursor:none;
-    transition:transform .18s, background .18s, border-color .18s, box-shadow .18s;
-  }
-  .target i { font-size:28px; color:var(--c); transition:transform .18s; }
-  .target span {
-    font-size:10.5px; font-weight:600;
-    letter-spacing:.8px; text-transform:uppercase;
-    color:var(--muted);
-  }
-  .target:hover {
-    transform:translateY(-4px);
-    border-color:color-mix(in srgb, var(--c) 65%, transparent);
-  }
-  .target:hover i { transform:scale(1.12); }
-  .target.flash {
-    transform:scale(.94);
-    border-color:var(--c);
-    box-shadow:0 0 34px color-mix(in srgb, var(--c) 55%, transparent);
-  }
-
-  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-  @media (max-width:700px) { .cards { grid-template-columns:1fr; } }
-
-  .card.draggable {
-    padding:22px 20px; border-radius:18px;
-    background:linear-gradient(135deg,
-      color-mix(in srgb, var(--c) 22%, #0d1220),
-      color-mix(in srgb, var(--c) 6%, #0d1220));
-    border:1.5px solid color-mix(in srgb, var(--c) 55%, transparent);
-    cursor:none; user-select:none;
-    box-shadow:0 8px 26px color-mix(in srgb, var(--c) 12%, transparent);
-    transition:box-shadow .18s, transform .18s, border-color .18s;
-  }
-  .card.draggable i { font-size:20px; color:var(--c); }
-  .card.draggable h3 { font-size:14px; margin-top:10px; font-weight:700; }
-  .card.draggable p { font-size:11px; color:var(--muted); margin-top:4px; }
-  .card.draggable.dragging {
-    border-color:var(--gold);
-    box-shadow:0 18px 44px color-mix(in srgb, var(--gold) 35%, transparent);
-    z-index:200;
-  }
-
-  .text-block {
-    background:rgba(255,255,255,.025);
-    border:1px solid rgba(255,255,255,.06);
-    border-radius:16px;
-    padding:24px 28px;
-    line-height:1.8; font-size:14.5px;
-    color:#c8d2e6; user-select:text; cursor:none;
-  }
-  .text-block h3 {
-    font-size:15px; color:var(--text);
-    margin-bottom:12px; letter-spacing:.2px;
-  }
-  .text-block p { margin-bottom:14px; }
-  .text-block p:last-child { margin-bottom:0; }
-  .text-block code {
-    background:rgba(0,230,255,.08);
-    border:1px solid rgba(0,230,255,.18);
-    padding:1px 6px; border-radius:5px;
-    font-family: ui-monospace, monospace;
-    font-size:12.5px; color:var(--cyan);
-  }
-  ::selection { background:rgba(0,230,255,.4); color:#fff; }
-
-  .page-end {
-    text-align:center; color:#3d4757;
-    font-size:12px; letter-spacing:1px;
-    text-transform:uppercase; margin-top:80px;
-  }
+  main{max-width:960px;margin:0 auto;padding:120px 32px 200px}
+  h2.section{font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--muted);margin:40px 0 18px;display:flex;align-items:center;gap:10px}
+  h2.section::after{content:'';flex:1;height:1px;
+    background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
+  .target-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  @media (max-width:900px){.target-grid{grid-template-columns:repeat(2,1fr)}}
+  .target{position:relative;aspect-ratio:1/1;border-radius:20px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    background:rgba(255,255,255,.035);border:1.5px solid rgba(255,255,255,.09);
+    color:var(--text);user-select:none;cursor:none;
+    transition:transform .18s,background .18s,border-color .18s,box-shadow .18s}
+  .target i{font-size:28px;color:var(--c);transition:transform .18s}
+  .target span{font-size:10.5px;font-weight:600;letter-spacing:.8px;
+    text-transform:uppercase;color:var(--muted)}
+  .target:hover{transform:translateY(-4px);
+    border-color:color-mix(in srgb,var(--c) 65%,transparent)}
+  .target:hover i{transform:scale(1.12)}
+  .target.flash{transform:scale(.94);border-color:var(--c);
+    box-shadow:0 0 34px color-mix(in srgb,var(--c) 55%,transparent)}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media (max-width:700px){.cards{grid-template-columns:1fr}}
+  .card.draggable{padding:22px 20px;border-radius:18px;
+    background:linear-gradient(135deg,color-mix(in srgb,var(--c) 22%,#0d1220),
+    color-mix(in srgb,var(--c) 6%,#0d1220));
+    border:1.5px solid color-mix(in srgb,var(--c) 55%,transparent);
+    user-select:none;cursor:none;
+    box-shadow:0 8px 26px color-mix(in srgb,var(--c) 12%,transparent);
+    transition:box-shadow .18s,transform .18s,border-color .18s}
+  .card.draggable i{font-size:20px;color:var(--c)}
+  .card.draggable h3{font-size:14px;margin-top:10px;font-weight:700}
+  .card.draggable p{font-size:11px;color:var(--muted);margin-top:4px}
+  .card.draggable.dragging{border-color:var(--gold);
+    box-shadow:0 18px 44px color-mix(in srgb,var(--gold) 35%,transparent);z-index:200}
+  .text-block{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);
+    border-radius:16px;padding:24px 28px;line-height:1.8;font-size:14.5px;
+    color:#c8d2e6;user-select:text;cursor:none}
+  .text-block h3{font-size:15px;color:var(--text);margin-bottom:12px;letter-spacing:.2px}
+  .text-block p{margin-bottom:14px}
+  .text-block p:last-child{margin-bottom:0}
+  .text-block code{background:rgba(0,230,255,.08);border:1px solid rgba(0,230,255,.18);
+    padding:1px 6px;border-radius:5px;font-family:ui-monospace,monospace;
+    font-size:12.5px;color:var(--cyan)}
+  ::selection{background:rgba(0,230,255,.4);color:#fff}
+  .page-end{text-align:center;color:#3d4757;font-size:12px;letter-spacing:1px;
+    text-transform:uppercase;margin-top:80px}
 </style>
 </head>
 <body>
 
-  <div id="cursor"></div>
-  <video id="video" autoplay playsinline muted></video>
+<div id="cursor"></div>
+<video id="video" autoplay playsinline muted></video>
 
-  <!-- ═══ Calibration overlay ═══ -->
-  <div class="cal-overlay hidden" id="calOverlay">
-    <div class="cal-head">
-      <h2 id="calTitle">Calibrate your cursor</h2>
-      <p id="calDesc">
-        Point at the target with <b>one hand</b>, then <b>pinch with your other hand</b> to confirm.
-        If you only have one hand, hold the cursor still on the target for 1.5 seconds.
-      </p>
-      <span class="cal-count"><i class="fa-solid fa-crosshairs"></i> <span id="calStepText">1 of 4</span> — <span id="calCornerName">Top Right</span></span>
-    </div>
-
-    <div class="cal-target" id="calTarget">
-      <div class="ring outer"></div>
-      <div class="ring"></div>
-      <div class="core"></div>
-      <div class="crosshair"></div>
-    </div>
-
-    <div class="cal-progress" id="calProgress">
-      <span class="step current"></span>
-      <span class="step"></span>
-      <span class="step"></span>
-      <span class="step"></span>
-    </div>
-
-    <div class="cal-hint" id="calHint">
-      <i class="fa-solid fa-hand-pointer"></i>
-      <span id="calHintText">Point at the target, then pinch with your other hand</span>
-    </div>
-
-    <button class="cal-skip" id="calSkip">Skip calibration</button>
-  </div>
-
-  <!-- ═══ Info panel ═══ -->
-  <div class="panel">
-    <h1><i class="fa-solid fa-hand-pointer"></i> DeX Hand Cursor</h1>
-    <div class="status-grid">
-      <div class="k">Input</div>
-      <div class="v"><span id="inputState"><i class="fa-solid fa-circle"></i><span id="inputLabel">idle</span></span></div>
-      <div class="k"><span class="dot" id="handDot"></span>Hand</div>
-      <div class="v" id="handState">absent</div>
-      <div class="k">Gesture</div>
-      <div class="v" id="actionState">Idle</div>
-      <div class="k">Tracking</div>
-      <div class="v" id="fpsState">—</div>
-      <div class="k">Calibration</div>
-      <div class="v" id="calState">—</div>
-    </div>
-    <div class="hint">
-      <i class="fa-solid fa-arrow-pointer"></i><b>Index</b> → move<br>
-      <i class="fa-solid fa-hand-point-up"></i><b>Thumb + Index (quick)</b> → click<br>
-      <i class="fa-solid fa-i-cursor"></i><b>Thumb + Index (hold)</b> → select<br>
-      <i class="fa-solid fa-up-down-left-right"></i><b>Thumb + Middle</b> → drag<br>
-      <i class="fa-solid fa-hand-peace"></i><b>Peace sign</b> → scroll
-    </div>
-    <div class="hint" style="border-top:1px solid rgba(255,255,255,.07); padding-top:10px;">
-      <i class="fa-solid fa-computer-mouse"></i>Mouse works too — auto-handoff.<br>
-      <kbd>R</kbd> recalibrate &nbsp;<kbd>Esc</kbd> show real cursor
+<!-- calibration -->
+<div class="cal-overlay" id="calOverlay">
+  <div class="cal-panel">
+    <h2>Calibrate your cursor</h2>
+    <p class="cal-sub">
+      <b>Point your hand toward the target dot.</b> When your fingertip is on the target,
+      <b>click Confirm with your real mouse</b>. Repeat for all 4 corners. This corrects
+      for your camera being off to one side.
+    </p>
+    <div class="cal-status">
+      <span class="cal-badge" id="calHandBadge"><i class="fa-solid fa-hand"></i>
+        <span id="calHandText">Hand: waiting…</span></span>
+      <span class="cal-badge" id="calCornerBadge"><i class="fa-solid fa-crosshairs"></i>
+        <span id="calCornerText">Corner 1 / 4 — Top Right</span></span>
     </div>
   </div>
+  <div class="cal-target" id="calTarget">
+    <div class="ring outer"></div><div class="ring"></div><div class="core"></div>
+  </div>
+  <div class="cal-actions">
+    <button class="cal-btn ghost" id="calBack" disabled>
+      <i class="fa-solid fa-arrow-left"></i> Back</button>
+    <button class="cal-btn" id="calConfirm" disabled>
+      <i class="fa-solid fa-circle-check"></i> Confirm</button>
+    <button class="cal-btn ghost" id="calCancel">Skip</button>
+  </div>
+  <div class="cal-progress" id="calProgress">
+    <span class="step current"></span><span class="step"></span>
+    <span class="step"></span><span class="step"></span>
+  </div>
+</div>
 
-  <!-- ═══ Tuner ═══ -->
-  <div class="tuner" id="tuner">
-    <div class="tuner-head">
-      <div class="title"><i class="fa-solid fa-sliders"></i> Tuner</div>
-      <div style="display:flex; gap:6px;">
-        <button class="icon-btn" id="tunerToggle" title="Collapse">
-          <i class="fa-solid fa-chevron-up"></i>
-        </button>
-      </div>
-    </div>
-    <div class="tuner-tabs">
-      <button id="tabTuners" class="active"><i class="fa-solid fa-sliders"></i> Values</button>
-      <button id="tabJson"><i class="fa-solid fa-code"></i> Config JSON</button>
-    </div>
-    <div class="tuner-body" id="paneTuners"></div>
-    <div class="tuner-body hidden" id="paneJson">
-      <p class="json-help">Live config — edit and click <b>Apply</b>, or paste a saved config.</p>
-      <textarea class="json-area" id="jsonArea" spellcheck="false"></textarea>
-    </div>
-    <div class="tuner-foot">
-      <button id="resetTuner"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-      <button id="recalBtn"><i class="fa-solid fa-crosshairs"></i> Recalibrate</button>
-      <button id="copyJson" class="primary"><i class="fa-solid fa-copy"></i> Copy JSON</button>
-      <button id="applyJson"><i class="fa-solid fa-check"></i> Apply</button>
-    </div>
+<!-- panel -->
+<div class="panel">
+  <h1><i class="fa-solid fa-hand-pointer"></i> DeX Hand Cursor</h1>
+  <div class="status-grid">
+    <div class="k">Input</div>
+    <div class="v"><span id="inputState"><i class="fa-solid fa-circle"></i>
+      <span id="inputLabel">idle</span></span></div>
+    <div class="k"><span class="dot" id="handDot"></span>Hand</div>
+    <div class="v" id="handState">absent</div>
+    <div class="k">Gesture</div>
+    <div class="v" id="actionState">Idle</div>
+    <div class="k">Pipeline</div>
+    <div class="v" id="fpsState">—</div>
+    <div class="k">Calibration</div>
+    <div class="v" id="calState">—</div>
+  </div>
+  <div class="hint">
+    <i class="fa-solid fa-arrow-pointer"></i><b>Index</b> → move<br>
+    <i class="fa-solid fa-hand-point-up"></i><b>Thumb + Index (quick)</b> → click<br>
+    <i class="fa-solid fa-i-cursor"></i><b>Thumb + Index (hold)</b> → select<br>
+    <i class="fa-solid fa-up-down-left-right"></i><b>Thumb + Middle</b> → drag<br>
+    <i class="fa-solid fa-hand-peace"></i><b>Peace sign</b> → scroll
+  </div>
+  <div class="hint" style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;">
+    <i class="fa-solid fa-computer-mouse"></i>Mouse works too.<br>
+    <kbd>R</kbd> recalibrate &nbsp;<kbd>Esc</kbd> show cursor
+  </div>
+</div>
+
+<!-- tuner -->
+<div class="tuner" id="tuner">
+  <div class="tuner-head">
+    <div class="title"><i class="fa-solid fa-sliders"></i> Tuner</div>
+    <div><button class="icon-btn" id="tunerToggle" title="Collapse">
+      <i class="fa-solid fa-chevron-up"></i></button></div>
+  </div>
+  <div class="tuner-tabs">
+    <button id="tabTuners" class="active"><i class="fa-solid fa-sliders"></i> Values</button>
+    <button id="tabJson"><i class="fa-solid fa-code"></i> Config JSON</button>
+  </div>
+  <div class="tuner-body" id="paneTuners"></div>
+  <div class="tuner-body hidden" id="paneJson">
+    <p class="json-help">Live config — edit and click <b>Apply</b>.</p>
+    <textarea class="json-area" id="jsonArea" spellcheck="false"></textarea>
+  </div>
+  <div class="tuner-foot">
+    <button id="resetTuner"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+    <button id="recalBtn"><i class="fa-solid fa-crosshairs"></i> Recalibrate</button>
+    <button id="copyJson" class="primary"><i class="fa-solid fa-copy"></i> Copy JSON</button>
+    <button id="applyJson"><i class="fa-solid fa-check"></i> Apply</button>
+  </div>
+</div>
+
+<div class="status-pill">
+  <span class="live-dot"></span>
+  <i class="fa-solid fa-video"></i>
+  <span id="pillText">Initialising camera…</span>
+</div>
+<div class="toast" id="toast"></div>
+
+<main>
+  <h2 class="section">Selectable Text</h2>
+  <div class="text-block">
+    <h3>AB-filter + affine calibration</h3>
+    <p>
+      The pointer is now driven by an <b>alpha-beta filter</b> — a steady-state Kalman
+      tuned for cursor tracking. Position is passed through with almost no smoothing;
+      the filter only smooths <i>velocity</i>. The DOM cursor is placed at
+      <code>lastPos + velocity × (elapsed + pipelineLatency)</code>, which cancels the
+      camera + inference delay. A tiny dead-zone removes jitter without adding lag.
+    </p>
+    <p>
+      Calibration records your hand's raw camera coordinates at four screen corners
+      and computes a full <b>affine transform</b> — so a camera placed off to the left
+      maps correctly to your screen. Stored in <code>localStorage</code>.
+    </p>
   </div>
 
-  <div class="status-pill">
-    <span class="live-dot"></span>
-    <i class="fa-solid fa-video"></i>
-    <span id="pillText">Initialising camera…</span>
+  <h2 class="section">Icon Targets</h2>
+  <div class="target-grid">
+    <div class="target" style="--c:var(--cyan)"   data-name="Bullseye"><i class="fa-solid fa-bullseye"></i><span>Bullseye</span></div>
+    <div class="target" style="--c:var(--pink)"   data-name="Heart"><i class="fa-solid fa-heart"></i><span>Heart</span></div>
+    <div class="target" style="--c:var(--gold)"   data-name="Star"><i class="fa-solid fa-star"></i><span>Star</span></div>
+    <div class="target" style="--c:var(--green)"  data-name="Leaf"><i class="fa-solid fa-leaf"></i><span>Leaf</span></div>
+    <div class="target" style="--c:var(--purple)" data-name="Music"><i class="fa-solid fa-music"></i><span>Music</span></div>
+    <div class="target" style="--c:var(--orange)" data-name="Bolt"><i class="fa-solid fa-bolt"></i><span>Bolt</span></div>
+    <div class="target" style="--c:var(--blue)"   data-name="Cloud"><i class="fa-solid fa-cloud"></i><span>Cloud</span></div>
+    <div class="target" style="--c:var(--red)"    data-name="Flame"><i class="fa-solid fa-fire-flame-curved"></i><span>Flame</span></div>
   </div>
-  <div class="toast" id="toast"></div>
 
-  <!-- ═══ Demo content ═══ -->
-  <main>
-    <h2 class="section">Selectable Text</h2>
-    <div class="text-block">
-      <h3>How the calibrated cursor works</h3>
-      <p>
-        The cursor is now driven by an <b>One-Euro filter</b> — a low-pass filter whose cutoff
-        frequency rises with velocity. When your hand is still it smooths aggressively; when you
-        move quickly it barely filters, so there's almost no lag. This is the same trick VR
-        headsets use to keep controllers feeling 1:1.
-      </p>
-      <p>
-        Calibration maps four raw fingertip positions (recorded at the screen corners) onto the
-        screen rectangle using an <b>affine transform</b>. That means the calibration handles
-        slight hand rotation or camera tilt, not just scale and offset. The mapping is stored in
-        <code>localStorage</code> and reused on every visit.
-      </p>
-      <p>
-        Mis-clicks are eliminated three ways: pinch must be confirmed for 3 consecutive frames,
-        a click has a 300 ms cooldown so fluttering pinches don't double-fire, and a "fist"
-        hand (tiny bounding box) can't trigger pinch recognition at all.
-      </p>
-    </div>
+  <h2 class="section">Draggable Cards</h2>
+  <div class="cards">
+    <div class="card draggable" style="--c:var(--cyan)"   data-drag>
+      <i class="fa-solid fa-cube"></i><h3>Card Alpha</h3><p>Thumb + middle to drag</p></div>
+    <div class="card draggable" style="--c:var(--purple)" data-drag>
+      <i class="fa-solid fa-cube"></i><h3>Card Beta</h3><p>Thumb + middle to drag</p></div>
+    <div class="card draggable" style="--c:var(--orange)" data-drag>
+      <i class="fa-solid fa-cube"></i><h3>Card Gamma</h3><p>Thumb + middle to drag</p></div>
+  </div>
 
-    <h2 class="section">Icon Targets</h2>
-    <div class="target-grid">
-      <div class="target" style="--c:var(--cyan)"   data-name="Bullseye"><i class="fa-solid fa-bullseye"></i><span>Bullseye</span></div>
-      <div class="target" style="--c:var(--pink)"   data-name="Heart"><i class="fa-solid fa-heart"></i><span>Heart</span></div>
-      <div class="target" style="--c:var(--gold)"   data-name="Star"><i class="fa-solid fa-star"></i><span>Star</span></div>
-      <div class="target" style="--c:var(--green)"  data-name="Leaf"><i class="fa-solid fa-leaf"></i><span>Leaf</span></div>
-      <div class="target" style="--c:var(--purple)" data-name="Music"><i class="fa-solid fa-music"></i><span>Music</span></div>
-      <div class="target" style="--c:var(--orange)" data-name="Bolt"><i class="fa-solid fa-bolt"></i><span>Bolt</span></div>
-      <div class="target" style="--c:var(--blue)"   data-name="Cloud"><i class="fa-solid fa-cloud"></i><span>Cloud</span></div>
-      <div class="target" style="--c:var(--red)"    data-name="Flame"><i class="fa-solid fa-fire-flame-curved"></i><span>Flame</span></div>
-    </div>
+  <p class="page-end"><i class="fa-solid fa-arrow-down"></i> &nbsp; end of page &nbsp; <i class="fa-solid fa-arrow-down"></i></p>
+</main>
 
-    <h2 class="section">Draggable Cards</h2>
-    <div class="cards">
-      <div class="card draggable" style="--c:var(--cyan)"   data-drag>
-        <i class="fa-solid fa-cube"></i><h3>Card Alpha</h3><p>Thumb + middle to drag</p>
-      </div>
-      <div class="card draggable" style="--c:var(--purple)" data-drag>
-        <i class="fa-solid fa-cube"></i><h3>Card Beta</h3><p>Thumb + middle to drag</p>
-      </div>
-      <div class="card draggable" style="--c:var(--orange)" data-drag>
-        <i class="fa-solid fa-cube"></i><h3>Card Gamma</h3><p>Thumb + middle to drag</p>
-      </div>
-    </div>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
-    <p class="page-end"><i class="fa-solid fa-arrow-down"></i> &nbsp; end of page &nbsp; <i class="fa-solid fa-arrow-down"></i></p>
-  </main>
+<script>
+(function(){
+"use strict";
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+/* ─── DOM ─── */
+const video=document.getElementById("video");
+const cursorEl=document.getElementById("cursor");
+const handDot=document.getElementById("handDot");
+const handState=document.getElementById("handState");
+const actionState=document.getElementById("actionState");
+const fpsState=document.getElementById("fpsState");
+const calState=document.getElementById("calState");
+const pillText=document.getElementById("pillText");
+const toastEl=document.getElementById("toast");
+const jsonArea=document.getElementById("jsonArea");
+const paneTuners=document.getElementById("paneTuners");
+const paneJson=document.getElementById("paneJson");
+const tabTuners=document.getElementById("tabTuners");
+const tabJson=document.getElementById("tabJson");
+const inputState=document.getElementById("inputState");
+const inputLabel=document.getElementById("inputLabel");
+const calOverlay=document.getElementById("calOverlay");
+const calTarget=document.getElementById("calTarget");
+const calHandBadge=document.getElementById("calHandBadge");
+const calHandText=document.getElementById("calHandText");
+const calCornerText=document.getElementById("calCornerText");
+const calConfirm=document.getElementById("calConfirm");
+const calBack=document.getElementById("calBack");
+const calCancel=document.getElementById("calCancel");
+const calProgress=document.getElementById("calProgress");
 
-  <script>
-  (function () {
-    "use strict";
+/* ═══════════════════════════════════════════════
+   TUNER DEFS — pre-configured for low-latency
+   ═══════════════════════════════════════════════ */
+const TUNER_DEFS={
+  /* Cursor / filter */
+  abAlpha:        {g:"Cursor",   l:"Smoothing α (0.5=stable,1=raw)", min:0.30,max:1.00,step:0.01, d:0.70},
+  abBeta:         {g:"Cursor",   l:"Velocity β (trust measurement)", min:0.02,max:0.80,step:0.01, d:0.22},
+  latencyMs:      {g:"Cursor",   l:"Pipeline latency comp (ms)",      min:0,  max:250,step:5,   d:90},
+  maxPredictPx:   {g:"Cursor",   l:"Max prediction (px)",             min:0,  max:500,step:10,  d:180},
+  stillDeadPx:    {g:"Cursor",   l:"Still dead-zone (px)",            min:0,  max:6,  step:0.2, d:1.2},
+  predictGate:    {g:"Cursor",   l:"Predict only above (px/s)",       min:0,  max:800,step:20,  d:80},
+  marginX:        {g:"Cursor",   l:"Fallback margin X",               min:0,  max:0.3,step:0.01,d:0.14},
+  marginY:        {g:"Cursor",   l:"Fallback margin Y",               min:0,  max:0.3,step:0.01,d:0.14},
+  handTimeoutMs:  {g:"Cursor",   l:"Hand→Mouse handoff (ms)",         min:80, max:1500,step:10,d:300},
 
-    /* ═══════════════════════════════════════════════════
-       DOM
-       ═══════════════════════════════════════════════════ */
-    const video           = document.getElementById("video");
-    const cursorEl        = document.getElementById("cursor");
-    const handDot         = document.getElementById("handDot");
-    const handState       = document.getElementById("handState");
-    const actionState     = document.getElementById("actionState");
-    const fpsState        = document.getElementById("fpsState");
-    const calState        = document.getElementById("calState");
-    const pillText        = document.getElementById("pillText");
-    const toastEl         = document.getElementById("toast");
-    const jsonArea        = document.getElementById("jsonArea");
-    const paneTuners      = document.getElementById("paneTuners");
-    const paneJson        = document.getElementById("paneJson");
-    const tabTuners       = document.getElementById("tabTuners");
-    const tabJson         = document.getElementById("tabJson");
-    const inputState      = document.getElementById("inputState");
-    const inputLabel      = document.getElementById("inputLabel");
+  /* Click */
+  clickPinch:     {g:"Click",    l:"Pinch distance",                  min:0.02,max:0.15,step:0.005,d:0.055},
+  releaseFactor:  {g:"Click",    l:"Release × start",                 min:1.05,max:2.5, step:0.05, d:1.4},
+  pinchConfirm:   {g:"Click",    l:"Confirm frames",                  min:1,   max:6,   step:1,    d:3},
+  clickCooldown:  {g:"Click",    l:"Cooldown (ms)",                   min:0,   max:1500,step:10,   d:280},
+  minHandSpan:    {g:"Click",    l:"Min hand span (fist reject)",     min:0,   max:0.4, step:0.01, d:0.13},
 
-    const calOverlay      = document.getElementById("calOverlay");
-    const calTarget       = document.getElementById("calTarget");
-    const calStepText     = document.getElementById("calStepText");
-    const calCornerName   = document.getElementById("calCornerName");
-    const calHint         = document.getElementById("calHint");
-    const calHintText     = document.getElementById("calHintText");
-    const calProgress     = document.getElementById("calProgress");
-    const calSkip         = document.getElementById("calSkip");
+  /* Select */
+  selectHoldMs:   {g:"Select",   l:"Hold to select (ms)",             min:150, max:1200,step:10,   d:400},
+  clickMaxMs:     {g:"Select",   l:"Click window (ms)",               min:80,  max:600, step:10,   d:260},
 
-    /* ═══════════════════════════════════════════════════
-       Tuners
-       ═══════════════════════════════════════════════════ */
-    const TUNER_DEFS = {
-      /* One-Euro cursor filter — tuned for responsiveness */
-      oneMinCut:      { group:"Cursor",  label:"Stillness cutoff",      min:0.2, max:5,    step:0.1,   def:1.5 },
-      oneBeta:        { group:"Cursor",  label:"Speed boost (lag↓)",    min:0,   max:0.3,  step:0.005, def:0.06 },
-      oneDCut:        { group:"Cursor",  label:"Derivative cutoff",     min:0.5, max:5,    step:0.1,   def:1.0 },
-      marginX:        { group:"Cursor",  label:"Fallback margin X",     min:0,   max:0.3,  step:0.01,  def:0.14 },
-      marginY:        { group:"Cursor",  label:"Fallback margin Y",     min:0,   max:0.3,  step:0.01,  def:0.14 },
-      handTimeoutMs:  { group:"Cursor",  label:"Hand→Mouse handoff ms", min:100, max:1500, step:10,    def:400 },
+  /* Drag */
+  dragPinch:      {g:"Drag",     l:"Drag pinch distance",             min:0.02,max:0.15,step:0.005,d:0.060},
 
-      /* Click anti-misfire */
-      clickPinch:     { group:"Click",   label:"Pinch distance",        min:0.02,max:0.15, step:0.005, def:0.055 },
-      releaseFactor:  { group:"Click",   label:"Release × start",       min:1.05,max:2.5,  step:0.05,  def:1.4   },
-      pinchConfirm:   { group:"Click",   label:"Confirm frames",        min:1,   max:6,    step:1,     def:3     },
-      clickCooldown:  { group:"Click",   label:"Cooldown (ms)",         min:0,   max:1500, step:10,    def:300   },
-      minHandSpan:    { group:"Click",   label:"Min hand span (fist reject)", min:0, max:0.4, step:0.01, def:0.16 },
+  /* Scroll */
+  scrollMode:     {g:"Scroll",   l:"Mode", type:"select",
+                   options:[["palm","Palm Y"],["tilt","Tilt"],["depth","Depth push"]],d:"palm"},
+  scrollSens:     {g:"Scroll",   l:"Sensitivity",                     min:0.2, max:12,  step:0.1,  d:3.2},
+  scrollDead:     {g:"Scroll",   l:"Dead-zone",                       min:0,   max:0.01,step:0.0001,d:0.0004},
+  scrollMax:      {g:"Scroll",   l:"Max / frame (px)",                min:50,  max:800, step:10,   d:400},
+  scrollBoost:    {g:"Scroll",   l:"Velocity boost",                  min:0,   max:1.5, step:0.05, d:0.6},
+  momentum:       {g:"Momentum", l:"Coast after release",             min:0,   max:0.98,step:0.02, d:0.5},
+  momentumDecay:  {g:"Momentum", l:"Decay per frame",                 min:0.85,max:0.99,step:0.005,d:0.94},
+};
 
-      selectHoldMs:   { group:"Select",  label:"Hold to select (ms)",   min:150, max:1200, step:10,    def:400 },
-      clickMaxMs:     { group:"Select",  label:"Click window (ms)",     min:80,  max:600,  step:10,    def:280 },
+const CFG_KEY="dex_v6_cfg", CAL_KEY="dex_v6_cal";
+const T={};
+Object.keys(TUNER_DEFS).forEach(k=>T[k]=TUNER_DEFS[k].d);
+try{const r=localStorage.getItem(CFG_KEY);if(r){const p=JSON.parse(r);
+  Object.keys(TUNER_DEFS).forEach(k=>{if(k in p)T[k]=p[k]})}}catch{}
+const saveCfg=()=>{try{localStorage.setItem(CFG_KEY,JSON.stringify(T))}catch{}};
 
-      dragPinch:      { group:"Drag",    label:"Drag pinch distance",   min:0.02,max:0.15, step:0.005, def:0.060 },
+/* ═══════════════════════════════════════════════
+   ALPHA-BETA FILTER (2D, constant velocity)
+   ═══════════════════════════════════════════════ */
+function makeAB(){
+  let x=0,y=0,vx=0,vy=0,init=false;
+  return {
+    step(mx,my,dt){
+      if(!init){x=mx;y=my;vx=0;vy=0;init=true;return}
+      if(dt<=0)return;
+      const px=x+vx*dt, py=y+vy*dt;
+      const rx=mx-px, ry=my-py;
+      x=px+T.abAlpha*rx;
+      y=py+T.abAlpha*ry;
+      vx+=T.abBeta*rx/dt;
+      vy+=T.abBeta*ry/dt;
+    },
+    predict(dtAhead){return{x:x+vx*dtAhead,y:y+vy*dtAhead}},
+    velocity(){return{x:vx,y:vy}},
+    reset(){init=false;x=y=vx=vy=0},
+    get initialized(){return init},
+  };
+}
+const ab=makeAB();
 
-      scrollMode:     { group:"Scroll",  label:"Mode", type:"select",
-                        options:[
-                          ["palm",  "Palm Y (up / down)"],
-                          ["tilt",  "Tilt (wrist angle)"],
-                          ["depth", "Depth push (in / out)"],
-                        ],
-                        def:"palm" },
-      scrollSens:     { group:"Scroll",  label:"Sensitivity",           min:0.2, max:12,   step:0.1,   def:3.2 },
-      scrollDead:     { group:"Scroll",  label:"Dead-zone",             min:0,   max:0.01, step:0.0001,def:0.0004 },
-      scrollMax:      { group:"Scroll",  label:"Max / frame (px)",      min:50,  max:800,  step:10,    def:400 },
-      scrollBoost:    { group:"Scroll",  label:"Velocity boost",        min:0,   max:1.5,  step:0.05,  def:0.6 },
+/* ═══════════════════════════════════════════════
+   AFFINE CALIBRATION
+   ═══════════════════════════════════════════════ */
+const CORNERS=[
+  {n:"Top Right",   nx:1,ny:0},
+  {n:"Bottom Right",nx:1,ny:1},
+  {n:"Bottom Left", nx:0,ny:1},
+  {n:"Top Left",    nx:0,ny:0},
+];
+const cal={active:false,step:0,raw:[],scr:[],M:null};
 
-      momentum:       { group:"Momentum",label:"Coast after release",   min:0,   max:0.98, step:0.02,  def:0.55 },
-      momentumDecay:  { group:"Momentum",label:"Decay per frame",       min:0.85,max:0.99, step:0.005, def:0.94 },
+function buildAffine(raw,scr){
+  /* raw/scr: [TR,BR,BL,TL] */
+  const rTR=raw[0],rBR=raw[1],rBL=raw[2],rTL=raw[3];
+  const sTR=scr[0],sBR=scr[1],sBL=scr[2],sTL=scr[3];
+  const ra={x:rTR.x-rTL.x,y:rTR.y-rTL.y};
+  const rb={x:rBL.x-rTL.x,y:rBL.y-rTL.y};
+  const det=ra.x*rb.y-ra.y*rb.x;
+  if(Math.abs(det)<1e-6)return null;
+  const sa={x:sTR.x-sTL.x,y:sTR.y-sTL.y};
+  const sb={x:sBL.x-sTL.x,y:sBL.y-sTL.y};
+  const m00=(sa.x*rb.y-sb.x*ra.y)/det;
+  const m01=(sb.x*ra.x-sa.x*rb.x)/det;
+  const m10=(sa.y*rb.y-sb.y*ra.y)/det;
+  const m11=(sb.y*ra.x-sa.y*rb.x)/det;
+  const tx=sTL.x-(m00*rTL.x+m01*rTL.y);
+  const ty=sTL.y-(m10*rTL.x+m11*rTL.y);
+  return{m00,m01,m10,m11,tx,ty};
+}
+function mapNorm(rawX,rawY){
+  const M=cal.M;
+  if(!M){
+    const mX=T.marginX,mY=T.marginY;
+    return{x:clamp01((rawX-mX)/(1-2*mX)),y:clamp01((rawY-mY)/(1-2*mY))};
+  }
+  return{
+    x:M.m00*rawX+M.m01*rawY+M.tx,
+    y:M.m10*rawX+M.m11*rawY+M.ty,
+  };
+}
+function mapScreen(rawX,rawY){
+  const n=mapNorm(rawX,rawY);
+  return{x:n.x*innerWidth,y:n.y*innerHeight};
+}
+try{const r=localStorage.getItem(CAL_KEY);if(r){const p=JSON.parse(r);
+  if(p&&p.raw&&p.scr&&p.raw.length===4){cal.raw=p.raw;cal.scr=p.scr;
+    cal.M=buildAffine(cal.raw,cal.scr)}}}catch{}
+const saveCal=()=>{try{localStorage.setItem(CAL_KEY,
+  JSON.stringify({raw:cal.raw,scr:cal.scr}))}catch{}};
+
+/* ─── Calibration UI ─── */
+function calStart(){
+  cal.active=true;cal.step=0;cal.raw=[];cal.scr=[];cal.M=null;ab.reset();
+  document.body.classList.add("calibrating");
+  calOverlay.classList.add("active");
+  calState.textContent="in progress";
+  calRenderStep();
+}
+function calRenderStep(){
+  const c=CORNERS[cal.step];
+  const pad=70;
+  calTarget.style.left=clamp(c.nx*innerWidth,pad,innerWidth-pad)+"px";
+  calTarget.style.top =clamp(c.ny*innerHeight,pad,innerHeight-pad)+"px";
+  calTarget.classList.remove("captured");
+  calCornerText.textContent=`Corner ${cal.step+1}/4 — ${c.n}`;
+  calBack.disabled=cal.step===0;
+  for(let i=0;i<calProgress.children.length;i++){
+    const el=calProgress.children[i];
+    el.classList.remove("current");
+    if(i<cal.step)el.classList.add("done");
+    if(i===cal.step)el.classList.add("current");
+  }
+}
+let lastRawHand={x:.5,y:.5};
+let lastHandTime=0;
+function calRefreshBadge(){
+  const fresh=(performance.now()-lastHandTime)<500;
+  if(fresh){calHandBadge.classList.add("ok");calHandBadge.classList.remove("warn");
+    calHandText.textContent="Hand: detected";calConfirm.disabled=false}
+  else{calHandBadge.classList.remove("ok");calHandBadge.classList.add("warn");
+    calHandText.textContent="Hand: not detected";calConfirm.disabled=true}
+}
+function calConfirmStep(){
+  if((performance.now()-lastHandTime)>=500)return;
+  const c=CORNERS[cal.step];
+  cal.raw[cal.step]={x:lastRawHand.x,y:lastRawHand.y};
+  cal.scr[cal.step]={x:c.nx,y:c.ny};
+  calTarget.classList.add("captured");
+  showToast(`Captured <b>${c.n}</b> — raw ${lastRawHand.x.toFixed(2)}, ${lastRawHand.y.toFixed(2)}`,1100);
+  setTimeout(()=>{
+    cal.step++;
+    if(cal.step>=4)calFinish();else calRenderStep();
+  },380);
+}
+function calBackStep(){if(cal.step>0){cal.step--;calRenderStep()}}
+function calFinish(){
+  cal.active=false;
+  document.body.classList.remove("calibrating");
+  calOverlay.classList.remove("active");
+  if(cal.raw.length===4){
+    cal.M=buildAffine(cal.raw,cal.scr);
+    if(cal.M){saveCal();calState.textContent="saved";showToast("Calibration saved",1600)}
+    else{calState.textContent="failed";showToast("Calibration failed — points degenerate",2200)}
+  }else{calState.textContent="skipped";showToast("Calibration skipped",1400)}
+}
+calConfirm.addEventListener("click",calConfirmStep);
+calBack.addEventListener("click",calBackStep);
+calCancel.addEventListener("click",()=>{cal.raw=[];cal.scr=[];calFinish()});
+
+/* ═══════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════ */
+const cursor={x:innerWidth/2,y:innerHeight/2,lastRenderedX:innerWidth/2,lastRenderedY:innerHeight/2};
+const mouseTarget={x:0,y:0,seen:false};
+let lastSampleTime=0; // performance.now() of last hand sample
+let inputSource="idle";
+
+const clickPinch={active:false,confirm:0,release:0,startTime:0,startX:0,startY:0,
+  holdTimer:null,cooldownUntil:0};
+const dragPinch={active:false,confirm:0,release:0,el:null,offX:0,offY:0};
+const sel={active:false,anchorNode:null,anchorOffset:0};
+const scrollState={lastY:null,lastScale:null,velocity:0,momentum:0,active:false};
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════ */
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const clamp01=v=>Math.max(0,Math.min(1,v));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function fingerExt(lm,tip,pip){
+  const w=lm[0];
+  const dT=Math.hypot(lm[tip].x-w.x,lm[tip].y-w.y);
+  const dP=Math.hypot(lm[pip].x-w.x,lm[pip].y-w.y);
+  return dT>dP*1.05;
+}
+function isScroll(lm){
+  return fingerExt(lm,8,6)&&!fingerExt(lm,16,14)&&
+         fingerExt(lm,12,10)&&!fingerExt(lm,20,18);
+}
+function palmY(lm){return (lm[0].y+lm[5].y+lm[9].y+lm[13].y+lm[17].y)/5}
+function handSpan(lm){
+  let a=1,b=0,c=1,d=0;
+  for(const p of lm){if(p.x<a)a=p.x;if(p.x>b)b=p.x;if(p.y<c)c=p.y;if(p.y>d)d=p.y}
+  return Math.hypot(b-a,d-c);
+}
+function handAngle(lm){return Math.atan2(lm[9].y-lm[0].y,lm[9].x-lm[0].x)}
+
+function fireMouse(type,x,y,buttons){
+  const el=document.elementFromPoint(x,y)||document.body;
+  el.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,
+    clientX:x,clientY:y,button:0,buttons:buttons??0,view:window}));
+  return el;
+}
+function fireDoc(type,x,y,buttons){
+  document.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,
+    clientX:x,clientY:y,button:0,buttons:buttons??0,view:window}));
+}
+let toastTimer=null;
+function showToast(html,ms=1400){
+  toastEl.innerHTML='<i class="fa-solid fa-circle-check"></i>'+html;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.classList.remove("show"),ms);
+}
+let lastAct="Idle";
+function setAction(t){if(t!==lastAct){lastAct=t;actionState.textContent=t}}
+let lastSrc="";
+function setSrc(s){
+  if(s===lastSrc)return;lastSrc=s;
+  inputState.classList.remove("hand","mouse");
+  if(s==="hand"){inputState.classList.add("hand");inputLabel.textContent="hand"}
+  else if(s==="mouse"){inputState.classList.add("mouse");inputLabel.textContent="mouse"}
+  else inputLabel.textContent="idle";
+}
+
+/* ═══════════════════════════════════════════════
+   SELECTION
+   ═══════════════════════════════════════════════ */
+function caretAt(x,y){
+  if(document.caretRangeFromPoint)return document.caretRangeFromPoint(x,y);
+  if(document.caretPositionFromPoint){
+    const p=document.caretPositionFromPoint(x,y);
+    if(!p)return null;
+    const r=document.createRange();
+    r.setStart(p.offsetNode,p.offset);r.collapse(true);return r;
+  }
+  return null;
+}
+function beginSel(x,y){
+  const r=caretAt(x,y);if(!r)return false;
+  sel.active=true;sel.anchorNode=r.startContainer;sel.anchorOffset=r.startOffset;
+  const s=getSelection();s.removeAllRanges();
+  const rr=document.createRange();
+  try{rr.setStart(r.startContainer,r.startOffset);rr.collapse(true);s.addRange(rr)}catch{}
+  cursorEl.classList.add("selecting");setAction("Selecting");return true;
+}
+function extendSel(x,y){
+  if(!sel.active)return;
+  const r=caretAt(x,y);if(!r)return;
+  const rr=document.createRange();
+  try{rr.setStart(sel.anchorNode,sel.anchorOffset);
+      rr.setEnd(r.startContainer,r.startOffset)}
+  catch{try{rr.setStart(r.startContainer,r.startOffset);
+      rr.setEnd(sel.anchorNode,sel.anchorOffset)}catch{return}}
+  const s=getSelection();s.removeAllRanges();s.addRange(rr);
+}
+function endSel(){sel.active=false;sel.anchorNode=null;sel.anchorOffset=0;
+  cursorEl.classList.remove("selecting");setAction("Move")}
+function clearSel(){const s=getSelection();if(s)s.removeAllRanges();
+  sel.active=false;sel.anchorNode=null;sel.anchorOffset=0;
+  cursorEl.classList.remove("selecting")}
+
+/* ═══════════════════════════════════════════════
+   CLICK / DRAG / SCROLL
+   ═══════════════════════════════════════════════ */
+function pinchDown(x,y){
+  clickPinch.active=true;clickPinch.startTime=performance.now();
+  clickPinch.startX=x;clickPinch.startY=y;
+  if(sel.active)clearSel();
+  else if(getSelection&&getSelection().rangeCount>0)getSelection().removeAllRanges();
+  clearTimeout(clickPinch.holdTimer);
+  clickPinch.holdTimer=setTimeout(()=>{
+    if(!clickPinch.active)return;
+    beginSel(cursor.x,cursor.y);
+  },T.selectHoldMs);
+}
+function pinchUp(x,y){
+  if(!clickPinch.active)return;
+  clearTimeout(clickPinch.holdTimer);
+  const held=performance.now()-clickPinch.startTime;
+  const now=performance.now();
+  if(sel.active)endSel();
+  else if(held<=T.clickMaxMs&&now>=clickPinch.cooldownUntil){
+    fireMouse("mousedown",x,y,1);fireMouse("mouseup",x,y,0);fireMouse("click",x,y,0);
+    const el=document.elementFromPoint(x,y);
+    const t=el&&el.closest&&el.closest(".target,.card.draggable");
+    if(t){t.classList.add("flash");setTimeout(()=>t.classList.remove("flash"),200)}
+    clickPinch.cooldownUntil=now+T.clickCooldown;setAction("Move");
+  }else setAction("Move");
+  clickPinch.active=false;clickPinch.confirm=0;clickPinch.release=0;
+}
+function dragBegin(x,y){
+  dragPinch.active=true;
+  const el=document.elementFromPoint(x,y);
+  const g=el&&el.closest&&el.closest("[data-drag]");
+  if(g){
+    const r=g.getBoundingClientRect();
+    g.style.position="fixed";g.style.left=r.left+"px";g.style.top=r.top+"px";
+    g.style.width=r.width+"px";g.style.margin="0";
+    dragPinch.el=g;dragPinch.offX=x-r.left;dragPinch.offY=y-r.top;
+    g.classList.add("dragging");
+  }else dragPinch.el=null;
+  fireMouse("mousedown",x,y,1);fireDoc("mousedown",x,y,1);setAction("Drag");
+}
+function dragMove(x,y){
+  if(!dragPinch.active)return;
+  fireDoc("mousemove",x,y,1);
+  if(dragPinch.el){
+    dragPinch.el.style.left=(x-dragPinch.offX)+"px";
+    dragPinch.el.style.top=(y-dragPinch.offY)+"px";
+  }
+}
+function dragEnd(x,y){
+  if(!dragPinch.active)return;
+  if(dragPinch.el){dragPinch.el.classList.remove("dragging");dragPinch.el=null}
+  fireMouse("mouseup",x,y,0);fireDoc("mouseup",x,y,0);
+  dragPinch.active=false;dragPinch.confirm=0;dragPinch.release=0;setAction("Move");
+}
+function scrollApply(a){
+  const s=document.scrollingElement||document.documentElement;
+  a=clamp(a,-T.scrollMax,T.scrollMax);
+  if(Math.abs(a)<0.5)return;s.scrollTop+=a;scrollState.velocity=a;
+}
+function updateScroll(lm){
+  if(!isScroll(lm)){onScrollEnd();return}
+  setAction("Scroll");scrollState.active=true;
+  let a=0;const mode=T.scrollMode;
+  if(mode==="palm"){
+    const y=palmY(lm);
+    if(scrollState.lastY!==null){
+      const dy=y-scrollState.lastY;
+      if(Math.abs(dy)>T.scrollDead){
+        const boost=1+Math.abs(dy)*T.scrollBoost*100;
+        a=-dy*T.scrollSens*innerHeight*boost;
+      }
+    }
+    scrollState.lastY=y;
+  }else if(mode==="tilt"){
+    const ang=handAngle(lm);const n=-Math.PI/2;
+    let d=ang-n;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;
+    if(Math.abs(d)>T.scrollDead*5)a=d*T.scrollSens*30;
+  }else if(mode==="depth"){
+    const sc=handSpan(lm);
+    if(scrollState.lastScale!==null){
+      const ds=sc-scrollState.lastScale;
+      if(Math.abs(ds)>T.scrollDead*3)a=ds*T.scrollSens*900;
+    }
+    scrollState.lastScale=sc;
+  }
+  if(a!==0)scrollApply(a);
+}
+function onScrollEnd(){
+  if(scrollState.active&&T.momentum>0)
+    scrollState.momentum=scrollState.velocity*T.momentum;
+  scrollState.active=false;scrollState.velocity=0;
+  scrollState.lastY=null;scrollState.lastScale=null;
+}
+(function momentumLoop(){
+  if(Math.abs(scrollState.momentum)>0.4){
+    const s=document.scrollingElement||document.documentElement;
+    s.scrollTop+=scrollState.momentum;
+    scrollState.momentum*=T.momentumDecay;
+  }else scrollState.momentum=0;
+  requestAnimationFrame(momentumLoop);
+})();
+
+/* ═══════════════════════════════════════════════
+   GESTURE PROCESSING (called on hand frame)
+   ═══════════════════════════════════════════════ */
+function processGestures(lm){
+  if(cal.active)return;
+  if(sel.active)extendSel(cursor.x,cursor.y);
+  const idxD=dist(lm[4],lm[8]);
+  const midD=dist(lm[4],lm[12]);
+  const span=handSpan(lm);
+  const spanOk=span>=T.minHandSpan;
+
+  /* click / select */
+  if(!clickPinch.active){
+    if(idxD<T.clickPinch&&spanOk){
+      clickPinch.confirm++;
+      if(clickPinch.confirm>=T.pinchConfirm){pinchDown(cursor.x,cursor.y);clickPinch.confirm=0}
+    }else clickPinch.confirm=0;
+  }else{
+    if(idxD>T.clickPinch*T.releaseFactor){
+      clickPinch.release++;
+      if(clickPinch.release>=2)pinchUp(cursor.x,cursor.y);
+    }else clickPinch.release=0;
+  }
+  /* drag */
+  if(!dragPinch.active){
+    if(midD<T.dragPinch&&!clickPinch.active&&spanOk){
+      dragPinch.confirm++;
+      if(dragPinch.confirm>=T.pinchConfirm){dragBegin(cursor.x,cursor.y);dragPinch.confirm=0}
+    }else dragPinch.confirm=0;
+  }else{
+    dragMove(cursor.x,cursor.y);
+    if(midD>T.dragPinch*T.releaseFactor){
+      dragPinch.release++;
+      if(dragPinch.release>=2)dragEnd(cursor.x,cursor.y);
+    }else dragPinch.release=0;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CURSOR LOOP (RAF, ~60-144 Hz)
+   ═══════════════════════════════════════════════ */
+function cursorLoop(){
+  const now=performance.now();
+  const handLive=(now-lastHandTime)<T.handTimeoutMs;
+
+  let src;
+  if(handLive)src="hand";
+  else if(mouseTarget.seen)src="mouse";
+  else src="idle";
+  if(src!==inputSource){inputSource=src;setSrc(src)}
+
+  if(src==="hand"&&ab.initialized){
+    /* Pipeline latency compensation: how far ahead to extrapolate */
+    const elapsed=(now-lastSampleTime)/1000;                  // time since last sample
+    const ahead=elapsed+T.latencyMs/1000;                     // + fixed pipeline delay
+    const vel=ab.velocity();
+    const speedPx=Math.hypot(vel.x,vel.y)*innerWidth;         // ≈ px/s
+
+    let predicted;
+    if(speedPx>T.predictGate){
+      predicted=ab.predict(ahead);
+      /* clamp prediction to maxPredictPx */
+      const pos=ab.predict(0);
+      const dx=(predicted.x-pos.x)*innerWidth;
+      const dy=(predicted.y-pos.y)*innerHeight;
+      const d=Math.hypot(dx,dy);
+      if(d>T.maxPredictPx){
+        const k=T.maxPredictPx/d;
+        predicted={x:pos.x+(predicted.x-pos.x)*k,y:pos.y+(predicted.y-pos.y)*k};
+      }
+    }else{
+      predicted=ab.predict(0);
+    }
+
+    const scr=mapScreen(predicted.x,predicted.y);
+
+    /* Dead-zone: if the raw screen position is nearly identical, don't move */
+    const dx=scr.x-cursor.lastRenderedX, dy=scr.y-cursor.lastRenderedY;
+    if(Math.hypot(dx,dy)>T.stillDeadPx){
+      cursor.x=scr.x;cursor.y=scr.y;
+    }
+  }else if(src==="mouse"){
+    cursor.x=mouseTarget.x;cursor.y=mouseTarget.y;
+  }
+
+  if(!cal.active){
+    cursorEl.style.left=cursor.x+"px";
+    cursorEl.style.top=cursor.y+"px";
+    if(src!=="idle")cursorEl.classList.add("visible");
+    else cursorEl.classList.remove("visible");
+    cursor.lastRenderedX=cursor.x;
+    cursor.lastRenderedY=cursor.y;
+  }
+  if(cal.active)calRefreshBadge();
+  requestAnimationFrame(cursorLoop);
+}
+requestAnimationFrame(cursorLoop);
+
+/* ═══════════════════════════════════════════════
+   PHYSICAL MOUSE
+   ═══════════════════════════════════════════════ */
+addEventListener("mousemove",e=>{
+  if(e.isTrusted===false)return;
+  mouseTarget.x=e.clientX;mouseTarget.y=e.clientY;mouseTarget.seen=true;
+  lastHandTime=0; // instant handoff
+},{passive:true});
+
+/* ═══════════════════════════════════════════════
+   MediaPipe
+   ═══════════════════════════════════════════════ */
+const hands=new Hands({
+  locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+});
+hands.setOptions({
+  maxNumHands:2,
+  modelComplexity:1,             /* full model — better accuracy */
+  minDetectionConfidence:0.65,
+  minTrackingConfidence:0.65,
+  selfPipe:true,                 /* deprecated on some builds — see below */
+  selfieMode:true,
+});
+/* Remove non-standard options if present */
+try{
+  hands.setOptions({maxNumHands:2,modelComplexity:1,
+    minDetectionConfidence:0.65,minTrackingConfidence:0.65,selfieMode:true});
+}catch{}
+
+hands.onResults(onResults);
+
+let busy=false;
+async function mpFrame(){
+  if(busy)return;
+  busy=true;
+  try{await hands.send({image:video})}catch(e){console.warn(e)}
+  busy=false;
+}
+
+/* Use requestVideoFrameCallback for accurate frame timing */
+function startVideoLoop(){
+  if(video.requestVideoFrameCallback){
+    const cb=(now,meta)=>{
+      lastFrameMetaTime=meta.presentationTime||now;
+      mpFrame();
+      video.requestVideoFrameCallback(cb);
     };
+    video.requestVideoFrameCallback(cb);
+  }else{
+    /* Fallback: rAF-driven sampling */
+    (function loop(){mpFrame();requestAnimationFrame(loop)})();
+  }
+}
+let lastFrameMetaTime=0;
 
-    const STORAGE_KEY = "dex_hand_cursor_config_v4";
-    const CAL_KEY     = "dex_hand_cursor_calibration_v1";
-    const T = {};
-    Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].def; });
+function onResults(results){
+  const now=performance.now();
+  const lms=results.multiHandLandmarks||[];
+  handDot.classList.toggle("on",lms.length>0);
+  handState.textContent=lms.length>0?"tracking":"absent";
 
-    (function loadFromStorage() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object")
-          Object.keys(TUNER_DEFS).forEach(k => { if (k in parsed) T[k] = parsed[k]; });
-      } catch {}
-    })();
-    function saveToStorage() {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(T)); } catch {}
+  if(lms.length===0){
+    if(clickPinch.active){clearTimeout(clickPinch.holdTimer);
+      clickPinch.active=false;if(sel.active)endSel()}
+    if(dragPinch.active)dragEnd(cursor.x,cursor.y);
+    onScrollEnd();
+    return;
+  }
+
+  /* Pick cursor hand */
+  let cursorHand=null,scrollHand=null;
+  for(const lm of lms){
+    if(!cal.active&&isScroll(lm)){if(!scrollHand)scrollHand=lm;continue}
+    if(!cursorHand)cursorHand=lm;
+  }
+  if(!cursorHand)cursorHand=lms[0];
+
+  /* Feed filter — use presentation time when available */
+  const tip=cursorHand[8];
+  lastRawHand.x=tip.x;lastRawHand.y=tip.y;
+  const sampleT=(lastFrameMetaTime>0)
+    ? lastFrameMetaTime+performance.timeOrigin
+    : now;
+  /* Fallback: if sampleT looks wrong (e.g. already in performance.now space) use now */
+  const useT=isFinite(sampleT)?sampleT:now;
+  lastSampleTime=performance.now();  // we use performance.now() for prediction base
+  /* dt since previous sample (performance.now space) */
+  if(ab.initialized){
+    const dt=Math.max(0.005,(performance.now()-prevSamplePerfNow)/1000);
+    ab.step(tip.x,tip.y,dt);
+  }else{
+    ab.step(tip.x,tip.y,0);
+  }
+  prevSamplePerfNow=performance.now();
+  lastHandTime=performance.now();
+
+  processGestures(cursorHand);
+
+  if(scrollHand&&!cal.active)updateScroll(scrollHand);
+  else onScrollEnd();
+}
+let prevSamplePerfNow=0;
+
+/* ═══════════════════════════════════════════════
+   FPS / pipeline meter
+   ═══════════════════════════════════════════════ */
+let frameCount=0,lastFpsT=performance.now();
+function tickFps(){
+  frameCount++;
+  const n=performance.now();
+  if(n-lastFpsT>=1000){
+    fpsState.textContent=frameCount+" fps";
+    frameCount=0;lastFpsT=n;
+  }
+}
+const _origOnResults=onResults;
+function patchedOnResults(r){tickFps();_origOnResults(r)}
+hands.onResults(patchedOnResults);
+
+/* ═══════════════════════════════════════════════
+   CAMERA
+   ═══════════════════════════════════════════════ */
+async function startCamera(){
+  try{
+    pillText.textContent="Requesting camera…";
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:960},height:{ideal:540},
+        frameRate:{ideal:60,min:30},facingMode:"user"},
+      audio:false,
+    });
+    video.srcObject=stream;
+    await new Promise(r=>{
+      if(video.readyState>=1)return r();
+      video.onloadedmetadata=r;
+    });
+    await video.play();
+    const st=stream.getVideoTracks()[0].getSettings();
+    console.log("Camera:",st.width,"x",st.height,"@",st.frameRate);
+    pillText.textContent=`Camera live · ${st.width}×${st.height}@${Math.round(st.frameRate||30)}`;
+    startVideoLoop();
+  }catch(e){
+    console.error(e);
+    pillText.textContent="Camera blocked — mouse mode";
+    mouseTarget.seen=true;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   TUNER UI
+   ═══════════════════════════════════════════════ */
+function buildTuner(){
+  paneTuners.innerHTML="";
+  const groups={};
+  Object.keys(TUNER_DEFS).forEach(key=>{
+    const d=TUNER_DEFS[key];
+    if(!groups[d.g]){
+      const g=document.createElement("div");
+      g.className="tuner-group";g.textContent=d.g;
+      paneTuners.appendChild(g);groups[d.g]=g;
     }
-
-    /* ═══════════════════════════════════════════════════
-       One-Euro filter
-       ═══════════════════════════════════════════════════ */
-    class OneEuro {
-      constructor(minCut, beta, dCut) {
-        this.minCut = minCut; this.beta = beta; this.dCut = dCut;
-        this.xPrev = null; this.dxPrev = 0; this.tPrev = null;
-      }
-      alpha(cutoff, dt) {
-        const tau = 1 / (2 * Math.PI * cutoff);
-        return 1 / (1 + tau / dt);
-      }
-      filter(x, t) {
-        if (this.tPrev === null) {
-          this.tPrev = t; this.xPrev = x; return x;
-        }
-        const dt = Math.max(1e-3, (t - this.tPrev));
-        this.tPrev = t;
-        const dx = (x - this.xPrev) / dt;
-        const aD = this.alpha(this.dCut, dt);
-        const dxHat = aD * dx + (1 - aD) * this.dxPrev;
-        this.dxPrev = dxHat;
-        const cutoff = this.minCut + this.beta * Math.abs(dxHat);
-        const a = this.alpha(cutoff, dt);
-        const xHat = a * x + (1 - a) * this.xPrev;
-        this.xPrev = xHat;
-        return xHat;
-      }
-      reset() { this.xPrev = null; this.dxPrev = 0; this.tPrev = null; }
+    const row=document.createElement("div");
+    row.className="tuner-row";
+    if(d.type==="select"){
+      row.innerHTML=`<label>${d.l}</label><select id="t_${key}">
+        ${d.options.map(([v,l])=>`<option value="${v}" ${T[key]===v?"selected":""}>${l}</option>`).join("")}
+        </select>`;
+      paneTuners.appendChild(row);
+      const s=row.querySelector("select");
+      s.addEventListener("change",()=>{T[key]=s.value;saveCfg();refreshJson()});
+      return;
     }
-    let filterX = new OneEuro(T.oneMinCut, T.oneBeta, T.oneDCut);
-    let filterY = new OneEuro(T.oneMinCut, T.oneBeta, T.oneDCut);
-    function refreshFilterParams() {
-      filterX.minCut = filterY.minCut = T.oneMinCut;
-      filterX.beta   = filterY.beta   = T.oneBeta;
-      filterX.dCut   = filterY.dCut   = T.oneDCut;
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Calibration state
-       ═══════════════════════════════════════════════════ */
-    const CAL_CORNERS = [
-      { id:"tr", name:"Top Right",    tx: () => innerWidth,  ty: () => 0 },
-      { id:"br", name:"Bottom Right", tx: () => innerWidth,  ty: () => innerHeight },
-      { id:"bl", name:"Bottom Left",  tx: () => 0,           ty: () => innerHeight },
-      { id:"tl", name:"Top Left",     tx: () => 0,           ty: () => 0 },
-    ];
-
-    const cal = {
-      active: false,
-      step: 0,
-      rawCorners: [],               // 4 points, order matches CAL_CORNERS
-      transform: null,              // { tl, A, B, det } — affine
-      lastConfirmTime: 0,
-      dwellStart: 0,
-      captured: false,
+    row.innerHTML=`<label>${d.l}</label>
+      <input class="num" id="t_${key}" type="number" min="${d.min}" max="${d.max}" step="${d.step}" value="${T[key]}">
+      <input type="range" id="r_${key}" min="${d.min}" max="${d.max}" step="${d.step}" value="${T[key]}">`;
+    paneTuners.appendChild(row);
+    const num=row.querySelector(".num");
+    const rng=row.querySelector("input[type=range]");
+    const commit=(v,from)=>{
+      v=clamp(v,d.min,d.max);T[key]=v;
+      if(from!=="num")num.value=v;
+      if(from!=="rng")rng.value=v;
+      saveCfg();refreshJson();
     };
+    num.addEventListener("input",()=>commit(parseFloat(num.value)||d.d,"num"));
+    rng.addEventListener("input",()=>commit(parseFloat(rng.value),"rng"));
+  });
+}
 
-    (function loadCalibration() {
-      try {
-        const raw = localStorage.getItem(CAL_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.rawCorners && parsed.rawCorners.length === 4) {
-          cal.rawCorners = parsed.rawCorners;
-          cal.transform = buildAffine(parsed.rawCorners);
-        }
-      } catch {}
-    })();
-    function saveCalibration() {
-      try {
-        localStorage.setItem(CAL_KEY, JSON.stringify({ rawCorners: cal.rawCorners }));
-      } catch {}
+function getJSON(){
+  return JSON.stringify({app:"dex-hand-cursor",version:6,
+    savedAt:new Date().toISOString(),config:{...T},
+    calibration:cal.raw.length===4?{raw:cal.raw,scr:cal.scr}:null},null,2);
+}
+let jsonDirty=false;
+function refreshJson(){if(!jsonDirty)jsonArea.value=getJSON()}
+jsonArea.addEventListener("input",()=>jsonDirty=true);
+
+function applyJson(){
+  try{
+    const p=JSON.parse(jsonArea.value);
+    const c=p.config||p;
+    Object.keys(TUNER_DEFS).forEach(k=>{if(k in c)T[k]=c[k]});
+    if(p.calibration&&p.calibration.raw&&p.calibration.raw.length===4){
+      cal.raw=p.calibration.raw;cal.scr=p.calibration.scr;
+      cal.M=buildAffine(cal.raw,cal.scr);saveCal();calState.textContent="saved";
     }
-
-    /* Build affine transform from 4 raw corners.
-       rawCorners = [TR, BR, BL, TL] */
-    function buildAffine(corners) {
-      const rawTR = corners[0], rawBR = corners[1], rawBL = corners[2], rawTL = corners[3];
-      const A = { x: rawTR.x - rawTL.x, y: rawTR.y - rawTL.y };
-      const B = { x: rawBL.x - rawTL.x, y: rawBL.y - rawTL.y };
-      const det = A.x * B.y - A.y * B.x;
-      if (Math.abs(det) < 1e-6) return null;
-      return { tl: rawTL, A, B, det };
-    }
-
-    /** Map a raw MediaPipe (0..1) point to screen coords. */
-    function mapRawToScreen(rawX, rawY) {
-      if (!cal.transform) {
-        // Fallback: linear remap with margins
-        const rx = remap(rawX, T.marginX) * innerWidth;
-        const ry = remap(rawY, T.marginY) * innerHeight;
-        return { x: rx, y: ry };
-      }
-      const { tl, A, B, det } = cal.transform;
-      const px = rawX - tl.x;
-      const py = rawY - tl.y;
-      const u = (px * B.y - py * B.x) / det;
-      const v = (A.x * py - A.y * px) / det;
-      return {
-        x: clamp(u, -0.1, 1.1) * innerWidth,
-        y: clamp(v, -0.1, 1.1) * innerHeight,
-      };
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Cursor state
-       ═══════════════════════════════════════════════════ */
-    const cursorState = {
-      targetX: innerWidth / 2,
-      targetY: innerHeight / 2,
-      rawX: 0.5, rawY: 0.5,
-      lastHandTime: 0,
-      mouseSeen: false,
-      source: "idle",
-    };
-
-    let cursorX = cursorState.targetX;
-    let cursorY = cursorState.targetY;
-
-    /* ═══════════════════════════════════════════════════
-       Gesture state
-       ═══════════════════════════════════════════════════ */
-    const clickPinch = {
-      active:false, confirm:0, release:0,
-      startTime:0, startX:0, startY:0,
-      holdTimer:null, moved:false,
-      cooldownUntil: 0,
-    };
-    const dragPinch = {
-      active:false, confirm:0, release:0,
-      draggedEl:null, offX:0, offY:0,
-    };
-    const sel = { active:false, anchorNode:null, anchorOffset:0 };
-    const scrollState = { lastY:null, lastScale:null, velocity:0, momentum:0, active:false };
-
-    /* ═══════════════════════════════════════════════════
-       Helpers
-       ═══════════════════════════════════════════════════ */
-    const dist    = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
-    const clamp01 = v => Math.max(0, Math.min(1, v));
-    const clamp   = (v,a,b) => Math.max(a, Math.min(b, v));
-
-    function remap(v, margin) {
-      const lo = margin, hi = 1 - margin;
-      return clamp01((v - lo) / (hi - lo));
-    }
-    function fingerExtended(lm, tip, pip) {
-      const w = lm[0];
-      const dTip = Math.hypot(lm[tip].x - w.x, lm[tip].y - w.y);
-      const dPip = Math.hypot(lm[pip].x - w.x, lm[pip].y - w.y);
-      return dTip > dPip * 1.05;
-    }
-    function isScrollGesture(lm) {
-      return (
-        fingerExtended(lm, 8, 6)  && !fingerExtended(lm, 16, 14) &&
-        fingerExtended(lm, 12, 10) && !fingerExtended(lm, 20, 18)
-      );
-    }
-    function palmCentreY(lm) {
-      return (lm[0].y + lm[5].y + lm[9].y + lm[13].y + lm[17].y) / 5;
-    }
-    function handScale(lm) {
-      let minX=1, maxX=0, minY=1, maxY=0;
-      for (const p of lm) {
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
-      }
-      return Math.hypot(maxX-minX, maxY-minY);
-    }
-    function handAngle(lm) {
-      const vx = lm[9].x - lm[0].x;
-      const vy = lm[9].y - lm[0].y;
-      return Math.atan2(vy, vx);
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Mouse event synthesis
-       ═══════════════════════════════════════════════════ */
-    function fireMouse(type, x, y, buttons) {
-      const el = document.elementFromPoint(x, y) || document.body;
-      el.dispatchEvent(new MouseEvent(type, {
-        bubbles:true, cancelable:true,
-        clientX:x, clientY:y,
-        button:0, buttons:buttons ?? 0, view:window,
-      }));
-      return el;
-    }
-    function fireDocMouse(type, x, y, buttons) {
-      document.dispatchEvent(new MouseEvent(type, {
-        bubbles:true, cancelable:true,
-        clientX:x, clientY:y,
-        button:0, buttons:buttons ?? 0, view:window,
-      }));
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Toast / labels
-       ═══════════════════════════════════════════════════ */
-    let toastTimer = null;
-    function showToast(html, ms=1400) {
-      toastEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>' + html;
-      toastEl.classList.add("show");
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
-    }
-    let lastAction = "Idle";
-    function setAction(text) {
-      if (text === lastAction) return;
-      lastAction = text;
-      actionState.textContent = text;
-    }
-    let lastSource = "";
-    function setInputSource(src) {
-      if (src === lastSource) return;
-      lastSource = src;
-      inputState.classList.remove("hand", "mouse");
-      if (src === "hand")  { inputState.classList.add("hand");  inputLabel.textContent = "hand"; }
-      else if (src === "mouse") { inputState.classList.add("mouse"); inputLabel.textContent = "mouse"; }
-      else inputLabel.textContent = "idle";
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Selection engine
-       ═══════════════════════════════════════════════════ */
-    function caretRangeAt(x, y) {
-      if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
-      if (document.caretPositionFromPoint) {
-        const pos = document.caretPositionFromPoint(x, y);
-        if (!pos) return null;
-        const r = document.createRange();
-        r.setStart(pos.offsetNode, pos.offset);
-        r.collapse(true);
-        return r;
-      }
-      return null;
-    }
-    function beginSelection(x, y) {
-      const range = caretRangeAt(x, y);
-      if (!range) return false;
-      sel.active = true;
-      sel.anchorNode = range.startContainer;
-      sel.anchorOffset = range.startOffset;
-      const s = window.getSelection();
-      s.removeAllRanges();
-      const r = document.createRange();
-      try {
-        r.setStart(range.startContainer, range.startOffset);
-        r.collapse(true);
-        s.addRange(r);
-      } catch {}
-      cursorEl.classList.add("selecting");
-      setAction("Selecting");
-      return true;
-    }
-    function extendSelection(x, y) {
-      if (!sel.active) return;
-      const range = caretRangeAt(x, y);
-      if (!range) return;
-      const aNode = sel.anchorNode, aOff = sel.anchorOffset;
-      const bNode = range.startContainer, bOff = range.startOffset;
-      const r = document.createRange();
-      try { r.setStart(aNode, aOff); r.setEnd(bNode, bOff); }
-      catch {
-        try { r.setStart(bNode, bOff); r.setEnd(aNode, aOff); }
-        catch { return; }
-      }
-      const s = window.getSelection();
-      s.removeAllRanges();
-      s.addRange(r);
-    }
-    function endSelection() {
-      sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0;
-      cursorEl.classList.remove("selecting"); setAction("Move");
-    }
-    function clearSelection() {
-      const s = window.getSelection(); if (s) s.removeAllRanges();
-      sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0;
-      cursorEl.classList.remove("selecting");
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Click / select gesture
-       ═══════════════════════════════════════════════════ */
-    function pinchDown(x, y) {
-      clickPinch.active    = true;
-      clickPinch.startTime = performance.now();
-      clickPinch.startX    = x;
-      clickPinch.startY    = y;
-      clickPinch.moved     = false;
-
-      if (sel.active) clearSelection();
-      else if (window.getSelection && window.getSelection().rangeCount > 0)
-        window.getSelection().removeAllRanges();
-
-      clearTimeout(clickPinch.holdTimer);
-      clickPinch.holdTimer = setTimeout(() => {
-        if (!clickPinch.active) return;
-        beginSelection(cursorX, cursorY);
-      }, T.selectHoldMs);
-    }
-    function pinchUp(x, y) {
-      if (!clickPinch.active) return;
-      clearTimeout(clickPinch.holdTimer);
-      const heldMs = performance.now() - clickPinch.startTime;
-      const now = performance.now();
-
-      if (sel.active) {
-        endSelection();
-      } else if (heldMs <= T.clickMaxMs && now >= clickPinch.cooldownUntil) {
-        fireMouse("mousedown", x, y, 1);
-        fireMouse("mouseup",   x, y, 0);
-        fireMouse("click",     x, y, 0);
-        const el = document.elementFromPoint(x, y);
-        const t  = el && el.closest && el.closest(".target, .card.draggable");
-        if (t) {
-          t.classList.add("flash");
-          setTimeout(() => t.classList.remove("flash"), 200);
-        }
-        clickPinch.cooldownUntil = now + T.clickCooldown;
-        setAction("Move");
-      } else {
-        setAction("Move");
-      }
-
-      clickPinch.active  = false;
-      clickPinch.confirm = 0;
-      clickPinch.release = 0;
-      clickPinch.moved   = false;
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Drag
-       ═══════════════════════════════════════════════════ */
-    function dragBegin(x, y) {
-      dragPinch.active = true;
-      const el = document.elementFromPoint(x, y);
-      const grabbable = el && el.closest && el.closest("[data-drag]");
-      if (grabbable) {
-        const r = grabbable.getBoundingClientRect();
-        grabbable.style.position = "fixed";
-        grabbable.style.left = r.left + "px";
-        grabbable.style.top  = r.top  + "px";
-        grabbable.style.width = r.width + "px";
-        grabbable.style.margin = "0";
-        dragPinch.draggedEl = grabbable;
-        dragPinch.offX = x - r.left;
-        dragPinch.offY = y - r.top;
-        grabbable.classList.add("dragging");
-      } else dragPinch.draggedEl = null;
-      fireMouse("mousedown", x, y, 1);
-      fireDocMouse("mousedown", x, y, 1);
-      setAction("Drag");
-    }
-    function dragMove(x, y) {
-      if (!dragPinch.active) return;
-      fireDocMouse("mousemove", x, y, 1);
-      if (dragPinch.draggedEl) {
-        dragPinch.draggedEl.style.left = (x - dragPinch.offX) + "px";
-        dragPinch.draggedEl.style.top  = (y - dragPinch.offY) + "px";
-      }
-    }
-    function dragEnd(x, y) {
-      if (!dragPinch.active) return;
-      if (dragPinch.draggedEl) {
-        dragPinch.draggedEl.classList.remove("dragging");
-        dragPinch.draggedEl = null;
-      }
-      fireMouse("mouseup", x, y, 0);
-      fireDocMouse("mouseup", x, y, 0);
-      dragPinch.active = false; dragPinch.confirm = 0; dragPinch.release = 0;
-      setAction("Move");
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Calibration engine
-       ═══════════════════════════════════════════════════ */
-    function calStart() {
-      cal.active = true;
-      cal.step = 0;
-      cal.captured = false;
-      cal.rawCorners = [];
-      cal.transform = null;
-      filterX.reset(); filterY.reset();
-      calOverlay.classList.remove("hidden");
-      calUpdateUI();
-      showToast("Calibration started — follow the targets", 2000);
-      calState.textContent = "in progress";
-    }
-
-    function calFinish() {
-      cal.active = false;
-      calOverlay.classList.add("hidden");
-      if (cal.rawCorners.length === 4) {
-        cal.transform = buildAffine(cal.rawCorners);
-        saveCalibration();
-        calState.textContent = "saved";
-      } else {
-        calState.textContent = "skipped";
-      }
-    }
-
-    function calCapture() {
-      if (!cal.active || cal.captured) return;
-      // Capture the raw (pre-transform) hand position for this step
-      cal.rawCorners[cal.step] = { x: cursorState.rawX, y: cursorState.rawY };
-      cal.captured = true;
-
-      calTarget.classList.add("captured");
-      calProgress.children[cal.step].classList.remove("current");
-      calProgress.children[cal.step].classList.add("done");
-
-      const corner = CAL_CORNERS[cal.step];
-      showToast(`Captured <b>${corner.name}</b>`, 900);
-
-      setTimeout(() => {
-        calTarget.classList.remove("captured");
-        cal.step++;
-        if (cal.step >= CAL_CORNERS.length) {
-          calFinish();
-          showToast("Calibration complete", 1600);
-        } else {
-          cal.captured = false;
-          calUpdateUI();
-        }
-      }, 420);
-    }
-
-    function calUpdateUI() {
-      const corner = CAL_CORNERS[cal.step];
-      const tx = corner.tx(), ty = corner.ty();
-
-      // Position the target visually inside the viewport with padding
-      const pad = 60;
-      const px = clamp(tx, pad, innerWidth  - pad);
-      const py = clamp(ty, pad, innerHeight - pad);
-      calTarget.style.left = px + "px";
-      calTarget.style.top  = py + "px";
-
-      calStepText.textContent = `${cal.step + 1} of 4`;
-      calCornerName.textContent = corner.name;
-      calHintText.textContent = "Point at the target, then pinch with your other hand";
-      calHint.classList.remove("ready");
-
-      for (let i = 0; i < calProgress.children.length; i++) {
-        const el = calProgress.children[i];
-        el.classList.remove("current");
-        if (i === cal.step) el.classList.add("current");
-      }
-      cal.dwellStart = 0;
-    }
-
-    calSkip.addEventListener("click", () => {
-      calFinish();
-      showToast("Calibration skipped — using fallback mapping", 1600);
-    });
-
-    /* ═══════════════════════════════════════════════════
-       Hand frame → cursor target + gestures
-       ═══════════════════════════════════════════════════ */
-    function feedHandCursor(lm) {
-      const tip = lm[8];
-      cursorState.rawX = tip.x;
-      cursorState.rawY = tip.y;
-
-      const mapped = mapRawToScreen(tip.x, tip.y);
-      cursorState.targetX = mapped.x;
-      cursorState.targetY = mapped.y;
-      cursorState.lastHandTime = performance.now();
-    }
-
-    function updateHandGestures(lm, now) {
-      if (sel.active) extendSelection(cursorX, cursorY);
-
-      const idxDist = dist(lm[4], lm[8]);
-      const midDist = dist(lm[4], lm[12]);
-      const span    = handScale(lm);
-      const spanOk  = span >= T.minHandSpan;   // reject "fist" hands
-
-      /* ── CALIBRATION MODE ─────────────────────── */
-      if (cal.active && !cal.captured) {
-        // Cursor distance to current target
-        const corner = CAL_CORNERS[cal.step];
-        const cx = clamp(corner.tx(), 60, innerWidth  - 60);
-        const cy = clamp(corner.ty(), 60, innerHeight - 60);
-        const d2t = Math.hypot(cursorX - cx, cursorY - cy);
-
-        // Confirm by pinching (any hand — during calibration the second hand
-        // will show up as its own landmark set and we just look for ANY pinch)
-        const pinching = (idxDist < T.clickPinch) && spanOk;
-
-        if (d2t < 90) {
-          calHint.classList.add("ready");
-          calHintText.textContent = "Pinch now to confirm this corner";
-        } else {
-          calHint.classList.remove("ready");
-          calHintText.textContent = "Move the cursor onto the target";
-        }
-
-        // Dwell auto-confirm (single-hand fallback)
-        if (d2t < 60) {
-          if (!cal.dwellStart) cal.dwellStart = now;
-          else if (now - cal.dwellStart > 1500) {
-            calCapture();
-            return;
-          }
-        } else {
-          cal.dwellStart = 0;
-        }
-
-        // Pinch confirm (multi-hand)
-        if (pinching && d2t < 110 && (now - cal.lastConfirmTime) > 400) {
-          cal.lastConfirmTime = now;
-          calCapture();
-        }
-        // NOTE: do not run normal gestures during calibration
-        return;
-      }
-
-      /* ── NORMAL MODE: click / select ─────────── */
-      if (!clickPinch.active) {
-        if (idxDist < T.clickPinch && spanOk) {
-          clickPinch.confirm++;
-          if (clickPinch.confirm >= T.pinchConfirm) {
-            pinchDown(cursorX, cursorY);
-            clickPinch.confirm = 0;
-          }
-        } else clickPinch.confirm = 0;
-      } else {
-        if (!clickPinch.moved) {
-          const moved = Math.hypot(cursorX - clickPinch.startX, cursorY - clickPinch.startY);
-          if (moved > 12) clickPinch.moved = true;
-        }
-        if (idxDist > T.clickPinch * T.releaseFactor) {
-          clickPinch.release++;
-          if (clickPinch.release >= 2) pinchUp(cursorX, cursorY);
-        } else clickPinch.release = 0;
-      }
-
-      /* ── DRAG ────────────────────────────────── */
-      if (!dragPinch.active) {
-        if (midDist < T.dragPinch && !clickPinch.active && spanOk) {
-          dragPinch.confirm++;
-          if (dragPinch.confirm >= T.pinchConfirm) {
-            dragBegin(cursorX, cursorY);
-            dragPinch.confirm = 0;
-          }
-        } else dragPinch.confirm = 0;
-      } else {
-        dragMove(cursorX, cursorY);
-        if (midDist > T.dragPinch * T.releaseFactor) {
-          dragPinch.release++;
-          if (dragPinch.release >= 2) dragEnd(cursorX, cursorY);
-        } else dragPinch.release = 0;
-      }
-    }
-
-    /* ═══════════════════════════════════════════════════
-       RAF loop — cursor smoothing
-       ═══════════════════════════════════════════════════ */
-    function cursorLoop() {
-      const now = performance.now();
-      const handIsLive = (now - cursorState.lastHandTime) < T.handTimeoutMs;
-
-      let source;
-      if (handIsLive)                    source = "hand";
-      else if (cursorState.mouseSeen)    source = "mouse";
-      else                               source = "idle";
-
-      if (source !== cursorState.source) {
-        cursorState.source = source;
-        setInputSource(source);
-      }
-
-      if (source === "hand") {
-        // One-Euro filter (t in seconds)
-        cursorX = filterX.filter(cursorState.targetX, now / 1000);
-        cursorY = filterY.filter(cursorState.targetY, now / 1000);
-      } else if (source === "mouse") {
-        // Direct — zero lag for the physical mouse
-        cursorX = cursorState.targetX;
-        cursorY = cursorState.targetY;
-      }
-
-      cursorEl.style.left = cursorX + "px";
-      cursorEl.style.top  = cursorY + "px";
-
-      if (source !== "idle") cursorEl.classList.add("visible");
-      else                   cursorEl.classList.remove("visible");
-
-      requestAnimationFrame(cursorLoop);
-    }
-    requestAnimationFrame(cursorLoop);
-
-    /* ═══════════════════════════════════════════════════
-       Physical mouse input
-       ═══════════════════════════════════════════════════ */
-    window.addEventListener("mousemove", (e) => {
-      if (e.isTrusted === false) return;
-      cursorState.targetX = e.clientX;
-      cursorState.targetY = e.clientY;
-      cursorState.mouseSeen = true;
-      // Instant handoff: zero the hand timestamp so the mouse wins this frame
-      cursorState.lastHandTime = 0;
-    }, { passive: true });
-
-    document.addEventListener("mouseenter", () => {
-      cursorState.mouseSeen = true;
-    }, { passive: true });
-
-    /* ═══════════════════════════════════════════════════
-       Scroll
-       ═══════════════════════════════════════════════════ */
-    function scrollApply(amount) {
-      const scroller = document.scrollingElement || document.documentElement;
-      amount = clamp(amount, -T.scrollMax, T.scrollMax);
-      if (Math.abs(amount) < 0.5) return;
-      scroller.scrollTop += amount;
-      scrollState.velocity = amount;
-    }
-    function updateScroll(lm) {
-      if (!isScrollGesture(lm)) { onScrollEnd(); return; }
-      setAction("Scroll");
-      scrollState.active = true;
-      let amount = 0;
-      const mode = T.scrollMode;
-
-      if (mode === "palm") {
-        const y = palmCentreY(lm);
-        if (scrollState.lastY !== null) {
-          const dy = y - scrollState.lastY;
-          if (Math.abs(dy) > T.scrollDead) {
-            const boost = 1 + Math.abs(dy) * T.scrollBoost * 100;
-            amount = -dy * T.scrollSens * innerHeight * boost;
-          }
-        }
-        scrollState.lastY = y;
-      } else if (mode === "tilt") {
-        const angle = handAngle(lm);
-        const neutral = -Math.PI / 2;
-        let d = angle - neutral;
-        while (d >  Math.PI) d -= 2 * Math.PI;
-        while (d < -Math.PI) d += 2 * Math.PI;
-        if (Math.abs(d) > T.scrollDead * 5) amount = d * T.scrollSens * 30;
-      } else if (mode === "depth") {
-        const scale = handScale(lm);
-        if (scrollState.lastScale !== null) {
-          const ds = scale - scrollState.lastScale;
-          if (Math.abs(ds) > T.scrollDead * 3) amount = ds * T.scrollSens * 900;
-        }
-        scrollState.lastScale = scale;
-      }
-      if (amount !== 0) scrollApply(amount);
-    }
-    function onScrollEnd() {
-      if (scrollState.active && T.momentum > 0)
-        scrollState.momentum = scrollState.velocity * T.momentum;
-      scrollState.active    = false;
-      scrollState.velocity  = 0;
-      scrollState.lastY     = null;
-      scrollState.lastScale = null;
-    }
-    (function momentumLoop() {
-      if (Math.abs(scrollState.momentum) > 0.4) {
-        const scroller = document.scrollingElement || document.documentElement;
-        scroller.scrollTop += scrollState.momentum;
-        scrollState.momentum *= T.momentumDecay;
-      } else scrollState.momentum = 0;
-      requestAnimationFrame(momentumLoop);
-    })();
-
-    /* ═══════════════════════════════════════════════════
-       FPS
-       ═══════════════════════════════════════════════════ */
-    let frames = 0, lastFpsT = performance.now();
-    function tickFps() {
-      frames++;
-      const now = performance.now();
-      if (now - lastFpsT >= 1000) {
-        fpsState.textContent = frames + " fps";
-        frames = 0;
-        lastFpsT = now;
-      }
-    }
-
-    /* ═══════════════════════════════════════════════════
-       MediaPipe
-       ═══════════════════════════════════════════════════ */
-    const hands = new Hands({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
-    });
-    hands.setOptions({
-      maxNumHands: 2,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.75,
-      minTrackingConfidence: 0.75,
-      selfieMode: true,
-    });
-    hands.onResults(onResults);
-
-    function onResults(results) {
-      tickFps();
-      const now = performance.now();
-
-      const allLms = results.multiHandLandmarks || [];
-      handDot.classList.toggle("on", allLms.length > 0);
-      handState.textContent = allLms.length > 0 ? "tracking" : "absent";
-
-      if (allLms.length === 0) {
-        if (clickPinch.active) {
-          clearTimeout(clickPinch.holdTimer);
-          clickPinch.active = false;
-          if (sel.active) endSelection();
-        }
-        if (dragPinch.active) dragEnd(cursorX, cursorY);
-        onScrollEnd();
-        return;
-      }
-
-      /* Choose the pointer hand:
-         - during calibration: first hand that is NOT pinching
-         - otherwise: first hand that is NOT making the scroll gesture */
-      let cursorHand = null, scrollHand = null;
-      for (const lm of allLms) {
-        const span = handScale(lm);
-        const idxDist = dist(lm[4], lm[8]);
-        const pinching = (idxDist < T.clickPinch) && span >= T.minHandSpan;
-
-        if (!cal.active && isScrollGesture(lm)) {
-          if (!scrollHand) scrollHand = lm;
-          continue;
-        }
-        // During calibration the "confirming" hand will be pinching.
-        // We still want a cursor hand — pick whichever is NOT pinching.
-        if (cal.active && pinching && allLms.length > 1) continue;
-        if (!cursorHand) cursorHand = lm;
-      }
-
-      if (cursorHand) {
-        feedHandCursor(cursorHand);
-        updateHandGestures(cursorHand, now);
-      }
-
-      if (scrollHand && !cal.active) updateScroll(scrollHand);
-      else                           onScrollEnd();
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Tuner UI
-       ═══════════════════════════════════════════════════ */
-    function buildTunerUI() {
-      paneTuners.innerHTML = "";
-      const groups = {};
-      Object.keys(TUNER_DEFS).forEach(key => {
-        const def = TUNER_DEFS[key];
-        if (!groups[def.group]) {
-          const g = document.createElement("div");
-          g.className = "tuner-group";
-          g.textContent = def.group;
-          paneTuners.appendChild(g);
-          groups[def.group] = g;
-        }
-        const row = document.createElement("div");
-        row.className = "tuner-row";
-
-        if (def.type === "select") {
-          row.innerHTML = `
-            <label for="t_${key}">${def.label}</label>
-            <select id="t_${key}">
-              ${def.options.map(([v,lbl]) =>
-                `<option value="${v}" ${T[key]===v?"selected":""}>${lbl}</option>`
-              ).join("")}
-            </select>`;
-          paneTuners.appendChild(row);
-          const s = row.querySelector("select");
-          s.addEventListener("change", () => {
-            T[key] = s.value;
-            saveToStorage(); refreshJson();
-          });
-          return;
-        }
-
-        row.innerHTML = `
-          <label for="t_${key}">${def.label}</label>
-          <input class="num" id="t_${key}" type="number"
-                 min="${def.min}" max="${def.max}" step="${def.step}" value="${T[key]}">
-          <input type="range" id="r_${key}"
-                 min="${def.min}" max="${def.max}" step="${def.step}" value="${T[key]}">
-        `;
-        paneTuners.appendChild(row);
-        const num = row.querySelector(".num");
-        const rng = row.querySelector("input[type=range]");
-        const commit = (v, from) => {
-          v = clamp(v, def.min, def.max);
-          T[key] = v;
-          if (from !== "num") num.value = v;
-          if (from !== "rng") rng.value = v;
-          saveToStorage(); refreshJson();
-          // live-update filter params
-          if (key === "oneMinCut" || key === "oneBeta" || key === "oneDCut")
-            refreshFilterParams();
-        };
-        num.addEventListener("input", () => commit(parseFloat(num.value) || def.def, "num"));
-        rng.addEventListener("input", () => commit(parseFloat(rng.value), "rng"));
-      });
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Config JSON
-       ═══════════════════════════════════════════════════ */
-    function getConfigJSON() {
-      return JSON.stringify({
-        app: "dex-hand-cursor",
-        version: 4,
-        savedAt: new Date().toISOString(),
-        config: { ...T },
-        calibration: cal.rawCorners.length === 4
-          ? { rawCorners: cal.rawCorners }
-          : null,
-      }, null, 2);
-    }
-    let jsonDirtyFromUser = false;
-    function refreshJson() {
-      if (jsonDirtyFromUser) return;
-      jsonArea.value = getConfigJSON();
-    }
-    jsonArea.addEventListener("input", () => { jsonDirtyFromUser = true; });
-
-    function applyConfigFromText() {
-      try {
-        const parsed = JSON.parse(jsonArea.value);
-        const cfg = parsed.config || parsed;
-        Object.keys(TUNER_DEFS).forEach(k => { if (k in cfg) T[k] = cfg[k]; });
-        refreshFilterParams();
-        if (parsed.calibration && parsed.calibration.rawCorners &&
-            parsed.calibration.rawCorners.length === 4) {
-          cal.rawCorners = parsed.calibration.rawCorners;
-          cal.transform = buildAffine(cal.rawCorners);
-          saveCalibration();
-          calState.textContent = "saved";
-        }
-        buildTunerUI(); saveToStorage();
-        jsonDirtyFromUser = false; refreshJson();
-        showToast("Config applied");
-      } catch (e) {
-        showToast("Invalid JSON — check the format");
-        console.error(e);
-      }
-    }
-
-    document.getElementById("copyJson").addEventListener("click", () => {
-      const text = getConfigJSON();
-      navigator.clipboard.writeText(text).then(
-        () => showToast("Config copied to clipboard"),
-        () => { jsonArea.select(); document.execCommand("copy"); showToast("Config copied"); }
-      );
-    });
-    document.getElementById("applyJson").addEventListener("click", applyConfigFromText);
-    document.getElementById("resetTuner").addEventListener("click", () => {
-      Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].def; });
-      refreshFilterParams();
-      buildTunerUI(); saveToStorage();
-      jsonDirtyFromUser = false; refreshJson();
-      showToast("Tuners reset to defaults");
-    });
-    document.getElementById("tunerToggle").addEventListener("click", () => {
-      document.getElementById("tuner").classList.toggle("collapsed");
-    });
-    document.getElementById("recalBtn").addEventListener("click", () => {
-      if (!cal.active) calStart();
-    });
-    tabTuners.addEventListener("click", () => {
-      tabTuners.classList.add("active"); tabJson.classList.remove("active");
-      paneTuners.classList.remove("hidden"); paneJson.classList.add("hidden");
-    });
-    tabJson.addEventListener("click", () => {
-      tabJson.classList.add("active"); tabTuners.classList.remove("active");
-      paneJson.classList.remove("hidden"); paneTuners.classList.add("hidden");
-      jsonDirtyFromUser = false; refreshJson();
-    });
-
-    buildTunerUI();
-    refreshJson();
-    refreshFilterParams();
-
-    /* ═══════════════════════════════════════════════════
-       Camera boot
-       ═══════════════════════════════════════════════════ */
-    async function startCamera() {
-      try {
-        pillText.textContent = "Requesting camera…";
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width:{ideal:1280}, height:{ideal:720}, facingMode:"user" },
-          audio: false,
-        });
-        video.srcObject = stream;
-        await new Promise(res => {
-          if (video.readyState >= 1) return res();
-          video.onloadedmetadata = res;
-        });
-        await video.play();
-
-        const cam = new Camera(video, {
-          onFrame: async () => { await hands.send({ image: video }); },
-          width: 1280, height: 720,
-        });
-        cam.start();
-        pillText.textContent = "Camera live — tracking hands";
-      } catch (err) {
-        console.error("Camera error:", err);
-        pillText.textContent = "Camera blocked — mouse mode active";
-        cursorState.mouseSeen = true;
-      }
-    }
-    startCamera();
-
-    /* Auto-launch calibration if none saved */
-    setTimeout(() => {
-      if (!cal.transform) {
-        calStart();
-        calState.textContent = "first-time";
-      } else {
-        calState.textContent = "saved";
-      }
-    }, 1200);
-
-    /* ═══════════════════════════════════════════════════
-       Keyboard / resize
-       ═══════════════════════════════════════════════════ */
-    addEventListener("keydown", e => {
-      if (e.key === "Escape") {
-        document.body.style.cursor =
-          document.body.style.cursor === "none" ? "default" : "none";
-      }
-      if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey) {
-        if (!cal.active) calStart();
-      }
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "c") {
-        clearSelection();
-        showToast("Selection cleared");
-      }
-    });
-    addEventListener("resize", () => {
-      if (cal.active) calUpdateUI();
-    });
-  })();
-  </script>
+    buildTuner();saveCfg();jsonDirty=false;refreshJson();
+    showToast("Config applied");
+  }catch(e){showToast("Invalid JSON");console.error(e)}
+}
+document.getElementById("copyJson").addEventListener("click",()=>{
+  const t=getJSON();
+  navigator.clipboard.writeText(t).then(
+    ()=>showToast("Config copied"),
+    ()=>{jsonArea.select();document.execCommand("copy");showToast("Copied")});
+});
+document.getElementById("applyJson").addEventListener("click",applyJson);
+document.getElementById("resetTuner").addEventListener("click",()=>{
+  Object.keys(TUNER_DEFS).forEach(k=>T[k]=TUNER_DEFS[k].d);
+  buildTuner();saveCfg();jsonDirty=false;refreshJson();showToast("Reset");
+});
+document.getElementById("tunerToggle").addEventListener("click",()=>{
+  document.getElementById("tuner").classList.toggle("collapsed");
+});
+document.getElementById("recalBtn").addEventListener("click",()=>{
+  if(!cal.active)calStart();
+});
+tabTuners.addEventListener("click",()=>{
+  tabTuners.classList.add("active");tabJson.classList.remove("active");
+  paneTuners.classList.remove("hidden");paneJson.classList.add("hidden");
+});
+tabJson.addEventListener("click",()=>{
+  tabJson.classList.add("active");tabTuners.classList.remove("active");
+  paneJson.classList.remove("hidden");paneTuners.classList.add("hidden");
+  jsonDirty=false;refreshJson();
+});
+buildTuner();refreshJson();
+
+/* boot */
+startCamera();
+setTimeout(()=>{
+  if(!cal.M){calState.textContent="needed";calStart()}
+  else{calState.textContent="saved"}
+},1400);
+
+addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&!cal.active){
+    document.body.style.cursor=
+      document.body.style.cursor==="none"?"default":"none";
+  }
+  if(e.key.toLowerCase()==="r"&&!e.ctrlKey&&!e.metaKey&&!cal.active)calStart();
+});
+addEventListener("resize",()=>{if(cal.active)calRenderStep()});
+
+})();
+</script>
 </body>
 </html>
