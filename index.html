@@ -3,600 +3,598 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>DeX Hand Cursor · Any Hand · v4</title>
+<title>DeX Hand Cursor · Dual Input</title>
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer">
 <style>
   :root {
-    --cyan:   #00e6ff;
-    --pink:   #ff5078;
-    --gold:   #ffc83c;
-    --green:  #22e07a;
-    --purple: #a855f7;
-    --orange: #ff8a3d;
-    --blue:   #3b82f6;
-    --red:    #ef4444;
-    --bg:     #0b0e14;
-    --panel:  #0d1220;
-    --text:   #e0e6f0;
-    --muted:  #8792a8;
+    --cyan:#00e6ff; --pink:#ff5078; --gold:#ffc83c; --green:#22e07a;
+    --purple:#a855f7; --orange:#ff8a3d; --blue:#3b82f6; --red:#ef4444;
+    --bg:#0b0e14; --text:#e0e6f0; --muted:#8792a8;
   }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  html, body { background: var(--bg); }
-
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { background:var(--bg); }
+  html { scroll-behavior:auto !important; }
   body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    color: var(--text);
-    min-height: 260vh;                /* tall page — scroll gesture testable */
+    color:var(--text);
+    min-height: 260vh;
     overflow-x: hidden;
-    cursor: none;                     /* hide real cursor */
+    cursor: none;                    /* hide the real system cursor everywhere */
   }
 
-  /* ─────────────────────────────────────────────
-     Off-screen video (still feeds MediaPipe)
-     ───────────────────────────────────────────── */
   #video {
-    position: fixed;
-    left: -10000px;
-    top: 0;
-    width: 640px;
-    height: 480px;
-    opacity: 0;
-    pointer-events: none;
+    position:fixed; left:-10000px; top:0;
+    width:640px; height:480px; opacity:0; pointer-events:none;
   }
 
-  /* ─────────────────────────────────────────────
-     DeX-style curved cursor
-     ───────────────────────────────────────────── */
+  /* ── Virtual cursor — absolute maximum z-index ── */
   #cursor {
-    position: fixed;
-    left: 50%; top: 50%;
-    width: 0; height: 0;              /* div's (0,0) is the click hot-spot */
-    pointer-events: none;
-    z-index: 9999;
-    opacity: 0;
-    transition: opacity .15s;
-    will-change: left, top;
+    position:fixed; left:50%; top:50%;
+    width:22px; height:22px; border-radius:50%;
+    background:#fff; border:2px solid rgba(0,0,0,.78);
+    pointer-events:none;
+    z-index: 2147483647;             /* max signed 32-bit int */
+    transform:translate(-50%,-50%);
+    opacity:0;
+    transition:opacity .15s, width .12s, height .12s, background .12s;
+    will-change:left, top;
   }
-  #cursor.visible { opacity: 1; }
-
-  #cursor svg {
-    position: absolute;
-    left: 0; top: 0;
-    width: 28px; height: 28px;
-    overflow: visible;
-    transform-origin: 0 0;
-    transition: transform .14s cubic-bezier(.2,.7,.3,1.2),
-                filter .14s;
-    filter:
-      drop-shadow(0 1px 1.5px rgba(0,0,0,.7))
-      drop-shadow(0 0 6px rgba(0, 230, 255, .6));
-  }
-  #cursor.pinching svg {
-    transform: scale(.72);
-    filter:
-      drop-shadow(0 1px 1.5px rgba(0,0,0,.7))
-      drop-shadow(0 0 10px rgba(255, 80, 120, 1));
-  }
-  #cursor.dragging svg {
-    transform: scale(.85);
-    filter:
-      drop-shadow(0 1px 1.5px rgba(0,0,0,.7))
-      drop-shadow(0 0 12px rgba(255, 200, 60, 1));
-  }
-  #cursor.scrollmode svg {
-    filter:
-      drop-shadow(0 1px 1.5px rgba(0,0,0,.7))
-      drop-shadow(0 0 10px rgba(168, 85, 247, 1));
+  #cursor.visible { opacity:1; }
+  #cursor.selecting {
+    width:26px; height:26px;
+    background:transparent;
+    border:2.5px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.55) inset;
   }
 
-  /* ─────────────────────────────────────────────
-     Info panel
-     ───────────────────────────────────────────── */
+  /* ── info panel ────────────────────────────────── */
   .panel {
-    position: fixed; top: 18px; left: 18px; z-index: 100;
-    background: rgba(12, 16, 24, 0.85);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255,255,255,0.09);
-    border-radius: 16px;
-    padding: 16px 20px;
-    display: flex; flex-direction: column; gap: 12px;
-    width: 300px;
-    pointer-events: none;
-    font-size: 12px;
+    position:fixed; top:18px; left:18px; z-index:100;
+    background:rgba(12,16,24,.88);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:16px; padding:16px 20px;
+    width:300px; pointer-events:none;
+    font-size:12px;
+    display:flex; flex-direction:column; gap:12px;
   }
   .panel h1 {
-    font-size: 15px; font-weight: 700;
-    letter-spacing: .3px;
-    background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-    display: flex; align-items: center; gap: 8px;
+    font-size:15px; font-weight:700;
+    display:flex; align-items:center; gap:8px;
+    background:linear-gradient(90deg,var(--cyan),var(--purple),var(--pink));
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
   }
-  .panel h1 i {
-    background: none;
-    -webkit-text-fill-color: var(--cyan);
-    font-size: 16px;
-  }
+  .panel h1 i { -webkit-text-fill-color:var(--cyan); }
 
-  .panel .status-grid {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 6px 10px;
-    padding: 10px 12px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,.05);
-    font-size: 11.5px;
+  .status-grid {
+    display:grid; grid-template-columns:1fr auto;
+    gap:6px 10px; padding:10px 12px;
+    background:rgba(255,255,255,.03);
+    border-radius:10px; border:1px solid rgba(255,255,255,.05);
+    font-size:11.5px;
   }
-  .panel .status-grid .k { color: var(--muted); font-weight: 600; letter-spacing:.3px; }
-  .panel .status-grid .v { color: var(--text); font-weight: 700; text-align: right; }
+  .status-grid .k { color:var(--muted); font-weight:600; }
+  .status-grid .v { color:var(--text); font-weight:700; text-align:right; }
 
   .dot {
-    display: inline-block;
-    width: 8px; height: 8px; border-radius: 50%;
-    background: #3a4258; margin-right: 6px;
-    vertical-align: middle;
-    transition: background .15s, box-shadow .15s;
+    display:inline-block; width:8px; height:8px;
+    border-radius:50%; background:#3a4258;
+    margin-right:6px; vertical-align:middle;
+    transition:background .15s, box-shadow .15s;
   }
-  .dot.on { background: var(--green); box-shadow: 0 0 8px rgba(34,224,122,.8); }
+  .dot.on { background:var(--green); box-shadow:0 0 8px rgba(34,224,122,.8); }
 
-  .panel .hint { font-size: 11px; color: var(--muted); line-height: 1.6; }
-  .panel .hint b { color: #c8d2e6; font-weight: 600; }
-  .panel .hint i { color: var(--cyan); width: 14px; text-align: center; margin-right: 4px; }
+  /* input source badge */
+  #inputState {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:2px 8px; border-radius:999px;
+    font-size:10.5px; font-weight:700;
+    letter-spacing:.4px; text-transform:uppercase;
+    background:rgba(255,255,255,.06);
+    color:var(--muted);
+    transition:background .2s, color .2s;
+  }
+  #inputState.hand  { background:rgba(0,230,255,.14);  color:var(--cyan); }
+  #inputState.mouse { background:rgba(168,85,247,.16); color:var(--purple); }
+  #inputState i     { font-size:10px; }
+
+  .panel .hint { font-size:11px; color:var(--muted); line-height:1.6; }
+  .panel .hint b { color:#c8d2e6; font-weight:600; }
+  .panel .hint i { color:var(--cyan); width:14px; text-align:center; margin-right:4px; }
   .panel .hint kbd {
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.14);
-    border-radius: 4px;
-    padding: 0 5px;
-    font-family: inherit;
-    font-size: 10.5px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:4px; padding:0 5px;
+    font-family:inherit; font-size:10.5px;
   }
 
-  /* ─────────────────────────────────────────────
-     Status pill (replaces the video preview)
-     ───────────────────────────────────────────── */
+  /* ── tuner panel ───────────────────────────────── */
+  .tuner {
+    position:fixed; top:18px; right:18px; z-index:150;
+    width:360px;
+    max-height:calc(100vh - 36px);
+    background:rgba(12,16,24,.94);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:16px;
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  .tuner.collapsed .tuner-body,
+  .tuner.collapsed .tuner-foot,
+  .tuner.collapsed .tuner-tabs { display:none; }
+
+  .tuner-head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px;
+    font-size:13px; font-weight:700; letter-spacing:.3px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    flex-shrink:0;
+  }
+  .tuner-head .title { display:flex; align-items:center; gap:8px; }
+  .tuner-head .title i { color:var(--cyan); }
+
+  .icon-btn {
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);
+    width:28px; height:28px;
+    border-radius:8px; cursor:none;
+    display:grid; place-items:center;
+    transition:background .15s, color .15s, border-color .15s;
+    font-size:11.5px;
+  }
+  .icon-btn:hover {
+    background:rgba(0,230,255,.1);
+    border-color:rgba(0,230,255,.4);
+    color:var(--cyan);
+  }
+
+  .tuner-tabs {
+    display:flex;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    flex-shrink:0;
+    padding:0 10px;
+  }
+  .tuner-tabs button {
+    background:none; border:none;
+    color:var(--muted);
+    padding:10px 14px;
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:.6px;
+    text-transform:uppercase;
+    cursor:none;
+    border-bottom:2px solid transparent;
+    transition:color .15s, border-color .15s;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .tuner-tabs button:hover { color:var(--text); }
+  .tuner-tabs button.active {
+    color:var(--cyan);
+    border-bottom-color:var(--cyan);
+  }
+
+  .tuner-body {
+    padding:8px 16px 12px;
+    overflow-y:auto; overflow-x:hidden;
+    flex:1;
+  }
+  .tuner-body::-webkit-scrollbar { width:8px; }
+  .tuner-body::-webkit-scrollbar-thumb {
+    background:rgba(255,255,255,.12); border-radius:4px;
+  }
+  .tuner-body.hidden { display:none; }
+
+  .tuner-group {
+    font-size:10.5px; font-weight:700;
+    letter-spacing:1.4px; text-transform:uppercase;
+    color:var(--muted);
+    margin:14px 0 6px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .tuner-group:first-child { margin-top:6px; }
+  .tuner-group::after {
+    content:''; flex:1; height:1px;
+    background:linear-gradient(90deg,rgba(255,255,255,.1),transparent);
+  }
+
+  .tuner-row {
+    display:grid;
+    grid-template-columns:1fr 82px;
+    gap:6px 10px;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid rgba(255,255,255,.035);
+  }
+  .tuner-row:last-child { border-bottom:none; }
+  .tuner-row label {
+    font-size:11.5px; color:#b8c2d6;
+    font-weight:500; letter-spacing:.2px;
+  }
+  .tuner-row .num {
+    width:100%;
+    background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);
+    color:var(--text);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size:11px;
+    padding:6px;
+    border-radius:7px;
+    cursor:none;
+    text-align:right;
+    font-weight:600;
+    transition:border-color .15s, background .15s;
+  }
+  .tuner-row .num:hover { border-color:rgba(0,230,255,.4); }
+  .tuner-row .num:focus {
+    outline:none;
+    border-color:var(--cyan);
+    background:rgba(0,230,255,.05);
+  }
+  .tuner-row input[type=range] {
+    grid-column:1 / -1;
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:4px; border-radius:999px;
+    background:rgba(255,255,255,.09);
+    outline:none; cursor:none;
+    margin-top:2px;
+  }
+  .tuner-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none;
+    width:16px; height:16px; border-radius:50%;
+    background:#fff; border:2px solid #0b0e14;
+    cursor:none;
+    transition:transform .12s;
+    box-shadow:0 0 0 1px rgba(255,255,255,.2);
+  }
+  .tuner-row input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.18); }
+  .tuner-row input[type=range]::-moz-range-thumb {
+    width:16px; height:16px; border-radius:50%;
+    background:#fff; border:2px solid #0b0e14; cursor:none;
+  }
+
+  .tuner-row select {
+    grid-column:1 / -1;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);
+    font-size:11.5px;
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:none;
+    font-weight:600;
+    letter-spacing:.3px;
+  }
+  .tuner-row select:hover { border-color:rgba(0,230,255,.4); }
+  .tuner-row select:focus { outline:none; border-color:var(--cyan); }
+
+  .json-area {
+    width:100%;
+    min-height:320px;
+    background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:10px;
+    color:#8be9fd;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size:11px;
+    line-height:1.5;
+    padding:12px;
+    resize:vertical;
+    cursor:none;
+    outline:none;
+    letter-spacing:.2px;
+  }
+  .json-area:focus { border-color:var(--cyan); }
+  .json-help {
+    font-size:10.5px;
+    color:var(--muted);
+    letter-spacing:.3px;
+    margin-bottom:8px;
+    line-height:1.5;
+  }
+
+  .tuner-foot {
+    padding:12px 16px;
+    border-top:1px solid rgba(255,255,255,.06);
+    display:flex; gap:8px; flex-shrink:0;
+    flex-wrap:wrap;
+  }
+  .tuner-foot button {
+    flex:1 1 auto;
+    min-width:90px;
+    padding:9px 12px;
+    font-size:11.5px; font-weight:700;
+    letter-spacing:.3px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);
+    border-radius:9px;
+    cursor:none;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    transition:background .15s, border-color .15s, color .15s;
+  }
+  .tuner-foot button:hover {
+    background:rgba(0,230,255,.08);
+    border-color:rgba(0,230,255,.4);
+    color:var(--cyan);
+  }
+  .tuner-foot button.primary {
+    background:linear-gradient(135deg,var(--cyan),var(--blue));
+    border:none; color:#06111a;
+  }
+  .tuner-foot button.primary:hover { filter:brightness(1.1); color:#06111a; }
+
+  /* ── status pill / toast ───────────────────────── */
   .status-pill {
-    position: fixed; bottom: 20px; left: 50%;
-    transform: translateX(-50%);
-    z-index: 100;
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    background: rgba(12, 16, 24, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08);
-    font-size: 11.5px;
-    letter-spacing: .3px;
-    color: var(--muted);
-    pointer-events: none;
+    position:fixed; bottom:20px; left:50%;
+    transform:translateX(-50%);
+    z-index:100;
+    display:flex; align-items:center; gap:8px;
+    padding:8px 16px; border-radius:999px;
+    background:rgba(12,16,24,.85);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.08);
+    font-size:11.5px; letter-spacing:.3px;
+    color:var(--muted); pointer-events:none;
   }
-  .status-pill i { color: var(--cyan); }
+  .status-pill i { color:var(--cyan); }
   .status-pill .live-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--red);
-    box-shadow: 0 0 10px var(--red);
-    animation: pulse 1.4s ease-in-out infinite;
+    width:8px; height:8px; border-radius:50%;
+    background:var(--red);
+    box-shadow:0 0 10px var(--red);
+    animation:pulse 1.4s ease-in-out infinite;
   }
-  @keyframes pulse {
-    0%,100% { opacity: 1; }
-    50%     { opacity: .35; }
-  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
-  /* ─────────────────────────────────────────────
-     Main content
-     ───────────────────────────────────────────── */
-  main {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 120px 32px 200px;
+  .toast {
+    position:fixed; bottom:78px; left:50%;
+    transform:translate(-50%, 20px);
+    padding:10px 20px; border-radius:12px;
+    background:rgba(12,16,24,.92);
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text); font-size:12px; letter-spacing:.3px;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s, transform .25s;
+    z-index:500;
   }
+  .toast.show { opacity:1; transform:translate(-50%, 0); }
+  .toast i { color:var(--cyan); margin-right:6px; }
+
+  /* ── content ───────────────────────────────────── */
+  main { max-width:960px; margin:0 auto; padding:120px 32px 200px; }
   h2.section {
-    font-size: 13px; font-weight: 700;
-    letter-spacing: 1.2px; text-transform: uppercase;
-    color: var(--muted);
-    margin: 40px 0 18px;
-    display: flex; align-items: center; gap: 10px;
+    font-size:13px; font-weight:700;
+    letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--muted); margin:40px 0 18px;
+    display:flex; align-items:center; gap:10px;
   }
   h2.section::after {
-    content: ''; flex: 1; height: 1px;
-    background: linear-gradient(90deg, rgba(255,255,255,.1), transparent);
+    content:''; flex:1; height:1px;
+    background:linear-gradient(90deg,rgba(255,255,255,.1),transparent);
   }
 
-  /* Icon targets grid */
   .target-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
   }
-  @media (max-width: 700px) { .target-grid { grid-template-columns: repeat(2,1fr);} }
+  @media (max-width:900px) { .target-grid { grid-template-columns:repeat(2,1fr); } }
 
   .target {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    border-radius: 20px;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 8px;
-    background: rgba(255,255,255,0.035);
-    border: 1.5px solid rgba(255,255,255,0.09);
-    color: var(--text);
-    user-select: none;
-    cursor: none;
-    overflow: hidden;
-    transition: transform .18s, background .18s,
-                border-color .18s, box-shadow .18s;
-  }
-  .target::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: radial-gradient(circle at 50% 30%,
-                color-mix(in srgb, var(--c) 26%, transparent),
-                transparent 65%);
-    opacity: 0;
-    transition: opacity .2s;
-    pointer-events: none;
+    position:relative; aspect-ratio:1/1;
+    border-radius:20px;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:8px;
+    background:rgba(255,255,255,.035);
+    border:1.5px solid rgba(255,255,255,.09);
+    color:var(--text); user-select:none; cursor:none;
+    transition:transform .18s, background .18s, border-color .18s, box-shadow .18s;
   }
   .target i {
-    font-size: 28px;
-    color: var(--c);
-    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--c) 55%, transparent));
-    transition: transform .18s;
-    z-index: 1;
+    font-size:28px; color:var(--c);
+    transition:transform .18s;
   }
   .target span {
-    font-size: 10.5px; font-weight: 600;
-    letter-spacing: .8px; text-transform: uppercase;
-    color: var(--muted);
-    z-index: 1;
+    font-size:10.5px; font-weight:600;
+    letter-spacing:.8px; text-transform:uppercase;
+    color:var(--muted);
   }
   .target:hover {
-    transform: translateY(-4px);
-    border-color: color-mix(in srgb, var(--c) 65%, transparent);
-    box-shadow: 0 14px 34px color-mix(in srgb, var(--c) 22%, transparent);
+    transform:translateY(-4px);
+    border-color:color-mix(in srgb, var(--c) 65%, transparent);
   }
-  .target:hover::before { opacity: 1; }
-  .target:hover i { transform: scale(1.12); }
+  .target:hover i { transform:scale(1.12); }
   .target.flash {
-    transform: scale(.94);
-    border-color: var(--c);
-    box-shadow: 0 0 34px color-mix(in srgb, var(--c) 55%, transparent);
+    transform:scale(.94);
+    border-color:var(--c);
+    box-shadow:0 0 34px color-mix(in srgb, var(--c) 55%, transparent);
   }
-  .target.flash::before { opacity: 1; }
 
-  /* Draggable cards */
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-  }
-  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:700px) { .cards { grid-template-columns:1fr; } }
 
   .card.draggable {
-    padding: 22px 20px;
-    border-radius: 18px;
-    background:
-      linear-gradient(135deg,
-        color-mix(in srgb, var(--c) 22%, #0d1220),
-        color-mix(in srgb, var(--c) 6%, #0d1220));
-    border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent);
-    cursor: none; user-select: none;
-    box-shadow: 0 8px 26px color-mix(in srgb, var(--c) 12%, transparent);
-    transition: box-shadow .18s, transform .18s, border-color .18s;
-    position: relative;
+    padding:22px 20px; border-radius:18px;
+    background:linear-gradient(135deg,
+      color-mix(in srgb, var(--c) 22%, #0d1220),
+      color-mix(in srgb, var(--c) 6%, #0d1220));
+    border:1.5px solid color-mix(in srgb, var(--c) 55%, transparent);
+    cursor:none; user-select:none;
+    box-shadow:0 8px 26px color-mix(in srgb, var(--c) 12%, transparent);
+    transition:box-shadow .18s, transform .18s, border-color .18s;
   }
-  .card.draggable i {
-    font-size: 20px; color: var(--c);
-    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--c) 60%, transparent));
-  }
-  .card.draggable h3 {
-    font-size: 14px; margin-top: 10px;
-    font-weight: 700; letter-spacing: .2px;
-  }
-  .card.draggable p {
-    font-size: 11px; color: var(--muted);
-    margin-top: 4px; letter-spacing: .3px;
-  }
+  .card.draggable i { font-size:20px; color:var(--c); }
+  .card.draggable h3 { font-size:14px; margin-top:10px; font-weight:700; }
+  .card.draggable p { font-size:11px; color:var(--muted); margin-top:4px; }
   .card.draggable.dragging {
-    border-color: var(--gold);
-    box-shadow: 0 18px 44px color-mix(in srgb, var(--gold) 35%, transparent);
-    z-index: 200;
+    border-color:var(--gold);
+    box-shadow:0 18px 44px color-mix(in srgb, var(--gold) 35%, transparent);
+    z-index:200;
   }
 
-  /* Controls row */
-  .controls {
-    display: flex; flex-wrap: wrap;
-    gap: 16px; align-items: center;
+  .text-block {
+    background:rgba(255,255,255,.025);
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:16px;
+    padding:24px 28px;
+    line-height:1.8;
+    font-size:14.5px;
+    color:#c8d2e6;
+    user-select:text;
+    cursor:none;
   }
-
-  .btn {
-    padding: 12px 22px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--cyan), var(--blue));
-    color: #06111a;
-    font-weight: 700; font-size: 12.5px;
-    letter-spacing: .4px;
-    border: none;
-    cursor: none;
-    display: inline-flex; align-items: center; gap: 8px;
-    box-shadow: 0 8px 24px rgba(0, 230, 255, 0.25);
-    transition: transform .15s, box-shadow .15s, filter .15s;
+  .text-block h3 {
+    font-size:15px; color:var(--text);
+    margin-bottom:12px; letter-spacing:.2px;
   }
-  .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
-  .btn.flash { transform: scale(.95); }
-
-  .btn.ghost {
-    background: rgba(255,255,255,0.05);
-    color: var(--text);
-    border: 1.5px solid rgba(255,255,255,0.12);
-    box-shadow: none;
+  .text-block p { margin-bottom:14px; }
+  .text-block p:last-child { margin-bottom:0; }
+  .text-block code {
+    background:rgba(0,230,255,.08);
+    border:1px solid rgba(0,230,255,.18);
+    padding:1px 6px; border-radius:5px;
+    font-family: ui-monospace, monospace;
+    font-size:12.5px; color:var(--cyan);
   }
-  .btn.ghost:hover { border-color: var(--purple); color: var(--purple); }
-
-  /* Switch */
-  .switch {
-    display: flex; align-items: center; gap: 10px;
-    cursor: none; user-select: none;
-    font-size: 12px; color: var(--muted); font-weight: 600;
-    letter-spacing: .3px;
-  }
-  .switch .track {
-    width: 44px; height: 24px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.09);
-    border: 1px solid rgba(255,255,255,0.14);
-    position: relative;
-    transition: background .18s, border-color .18s, box-shadow .18s;
-  }
-  .switch .track::after {
-    content: '';
-    position: absolute; top: 2px; left: 2px;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: #6b7689;
-    transition: transform .22s cubic-bezier(.2,.8,.3,1.2), background .18s;
-  }
-  .switch.on .track {
-    background: color-mix(in srgb, var(--green) 25%, transparent);
-    border-color: var(--green);
-    box-shadow: 0 0 16px color-mix(in srgb, var(--green) 45%, transparent);
-  }
-  .switch.on .track::after {
-    transform: translateX(20px);
-    background: var(--green);
-  }
-  .switch.on .lbl { color: var(--text); }
-
-  /* Sliders */
-  .slider-wrap {
-    display: flex; flex-direction: column;
-    gap: 6px; min-width: 200px;
-  }
-  .slider-wrap .sl-head {
-    display: flex; justify-content: space-between;
-    font-size: 11px; color: var(--muted);
-    letter-spacing: .4px; font-weight: 600;
-  }
-  .slider-wrap .sl-head b { color: var(--text); font-weight: 700; }
-
-  input[type="range"].slider {
-    -webkit-appearance: none; appearance: none;
-    width: 100%; height: 6px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.09);
-    outline: none;
-    cursor: none;
-    transition: background .15s;
-  }
-  input[type="range"].slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    background: var(--c, var(--cyan));
-    border: 2px solid #fff;
-    box-shadow: 0 0 12px color-mix(in srgb, var(--c, var(--cyan)) 70%, transparent);
-    cursor: none;
-    transition: transform .12s;
-  }
-  input[type="range"].slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
-  input[type="range"].slider::-moz-range-thumb {
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    background: var(--c, var(--cyan));
-    border: 2px solid #fff;
-    cursor: none;
-  }
-
-  /* Colour swatches */
-  .swatches { display: flex; gap: 12px; flex-wrap: wrap; }
-  .swatch {
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    background: var(--c);
-    cursor: none;
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 55%, transparent);
-    transition: transform .15s, box-shadow .2s;
-    border: 2px solid rgba(255,255,255,0.15);
-  }
-  .swatch:hover { transform: scale(1.12); }
-  .swatch.active {
-    border-color: #fff;
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 35%, transparent),
-                0 0 22px color-mix(in srgb, var(--c) 65%, transparent);
-  }
-
-  /* Toast */
-  .toast {
-    position: fixed; bottom: 78px; left: 50%;
-    transform: translate(-50%, 20px);
-    padding: 10px 20px;
-    border-radius: 12px;
-    background: rgba(12,16,24,0.9);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: var(--text); font-size: 12px;
-    letter-spacing: .3px;
-    opacity: 0; pointer-events: none;
-    transition: opacity .25s, transform .25s;
-    z-index: 500;
-  }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
-  .toast i { color: var(--cyan); margin-right: 6px; }
+  ::selection { background:rgba(0,230,255,.4); color:#fff; }
 
   .page-end {
-    text-align: center;
-    color: #3d4757;
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    margin-top: 80px;
+    text-align:center; color:#3d4757;
+    font-size:12px; letter-spacing:1px;
+    text-transform:uppercase; margin-top:80px;
   }
 </style>
 </head>
 <body>
 
-  <!-- ═══════ Cursor (SVG — DeX curved pointer) ═══════ -->
-  <div id="cursor">
-    <svg viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
-      <path d="M0 0
-               C 9 1, 16 6, 18 15
-               C 11 13, 5 8, 0 0 Z"
-            fill="#ffffff"
-            stroke="#16181d"
-            stroke-width="1"
-            stroke-linejoin="round"/>
-    </svg>
-  </div>
-
-  <!-- ═══════ Hidden video (feeds MediaPipe) ═══════ -->
+  <div id="cursor"></div>
   <video id="video" autoplay playsinline muted></video>
 
-  <!-- ═══════ Status panel ═══════ -->
+  <!-- ── Info panel ─────────────────────────────── -->
   <div class="panel">
     <h1><i class="fa-solid fa-hand-pointer"></i> DeX Hand Cursor</h1>
-
     <div class="status-grid">
+      <div class="k">Input</div>
+      <div class="v"><span id="inputState"><i class="fa-solid fa-circle"></i><span id="inputLabel">idle</span></span></div>
       <div class="k"><span class="dot" id="handDot"></span>Hand</div>
       <div class="v" id="handState">absent</div>
-      <div class="k">Action</div>
+      <div class="k">Gesture</div>
       <div class="v" id="actionState">Idle</div>
-      <div class="k">Accuracy</div>
+      <div class="k">Scroll mode</div>
+      <div class="v" id="scrollModeState">Palm</div>
+      <div class="k">Tracking</div>
       <div class="v" id="fpsState">—</div>
     </div>
-
     <div class="hint">
-      <i class="fa-solid fa-arrow-pointer"></i><b>Index finger</b> → move<br>
-      <i class="fa-solid fa-hand-point-up"></i><b>Pinch</b> → click<br>
-      <i class="fa-solid fa-up-down-left-right"></i><b>Pinch &amp; move</b> → drag<br>
-      <i class="fa-solid fa-hand-peace"></i><b>Peace sign</b> → scroll<br>
-      <span style="display:inline-block;width:18px;"></span>move hand up/down to scroll
+      <i class="fa-solid fa-arrow-pointer"></i><b>Index</b> → move cursor<br>
+      <i class="fa-solid fa-hand-point-up"></i><b>Thumb + Index (quick)</b> → click<br>
+      <i class="fa-solid fa-i-cursor"></i><b>Thumb + Index (hold)</b> → select text<br>
+      <i class="fa-solid fa-up-down-left-right"></i><b>Thumb + Middle</b> → drag element<br>
+      <i class="fa-solid fa-hand-peace"></i><b>Peace sign</b> → scroll
     </div>
-
     <div class="hint" style="border-top:1px solid rgba(255,255,255,.07); padding-top:10px;">
-      <i class="fa-solid fa-circle-info"></i>Use <b>either hand</b> for anything.<br>
+      <i class="fa-solid fa-computer-mouse"></i>Or just use your <b>mouse</b>.<br>
+      <i class="fa-solid fa-circle-info"></i>The two inputs hand off automatically.<br>
       <kbd>Esc</kbd> toggles the real cursor.
     </div>
   </div>
 
-  <!-- ═══════ Status pill (replaces preview) ═══════ -->
+  <!-- ── Tuner ──────────────────────────────────── -->
+  <div class="tuner" id="tuner">
+    <div class="tuner-head">
+      <div class="title"><i class="fa-solid fa-sliders"></i> Tuner</div>
+      <div style="display:flex; gap:6px;">
+        <button class="icon-btn" id="tunerToggle" title="Collapse">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="tuner-tabs">
+      <button id="tabTuners" class="active"><i class="fa-solid fa-sliders"></i> Values</button>
+      <button id="tabJson"><i class="fa-solid fa-code"></i> Config JSON</button>
+    </div>
+
+    <div class="tuner-body" id="paneTuners"></div>
+
+    <div class="tuner-body hidden" id="paneJson">
+      <p class="json-help">Live config — edit and click <b>Apply</b>, or paste a saved config.</p>
+      <textarea class="json-area" id="jsonArea" spellcheck="false"></textarea>
+    </div>
+
+    <div class="tuner-foot">
+      <button id="resetTuner"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+      <button id="copyJson" class="primary"><i class="fa-solid fa-copy"></i> Copy JSON</button>
+      <button id="applyJson"><i class="fa-solid fa-check"></i> Apply</button>
+    </div>
+  </div>
+
   <div class="status-pill">
     <span class="live-dot"></span>
     <i class="fa-solid fa-video"></i>
     <span id="pillText">Initialising camera…</span>
   </div>
-
-  <!-- ═══════ Toast ═══════ -->
   <div class="toast" id="toast"></div>
 
-  <!-- ═══════ Content ═══════ -->
+  <!-- ── Demo content ───────────────────────────── -->
   <main>
+    <h2 class="section">Selectable Text — try long-pinch</h2>
+    <div class="text-block">
+      <h3>How selection works</h3>
+      <p>
+        Point your index finger at the start of the sentence you want to select.
+        Then pinch your <b>thumb and index finger together</b> and hold for about
+        half a second. The cursor changes to a <b>hollow ring</b> — that means the
+        selection anchor has been placed at that character.
+      </p>
+      <p>
+        Now move your hand. Whatever the cursor passes over gets added to the
+        selection — forwards, backwards, up, down, across paragraphs. Release the
+        pinch to finish, and the selected text stays highlighted just like a
+        normal mouse drag. It uses the browser's native
+        <code>caretRangeFromPoint</code> API, so it works on any selectable text
+        on any page, including <code>&lt;code&gt;</code> spans like this one.
+      </p>
+      <p>
+        The virtual cursor also drives the real mouse: as soon as you move your
+        physical mouse, the white dot follows it natively. Move your hand again
+        and it snaps back to fingertip tracking. Both inputs share the same
+        click, drag and select behaviours.
+      </p>
+    </div>
 
     <h2 class="section">Icon Targets</h2>
     <div class="target-grid">
-      <div class="target" style="--c: var(--cyan)"   data-name="Bullseye"><i class="fa-solid fa-bullseye"></i><span>Bullseye</span></div>
-      <div class="target" style="--c: var(--pink)"   data-name="Heart"><i class="fa-solid fa-heart"></i><span>Heart</span></div>
-      <div class="target" style="--c: var(--gold)"   data-name="Star"><i class="fa-solid fa-star"></i><span>Star</span></div>
-      <div class="target" style="--c: var(--green)"  data-name="Leaf"><i class="fa-solid fa-leaf"></i><span>Leaf</span></div>
-      <div class="target" style="--c: var(--purple)" data-name="Music"><i class="fa-solid fa-music"></i><span>Music</span></div>
-      <div class="target" style="--c: var(--orange)" data-name="Bolt"><i class="fa-solid fa-bolt"></i><span>Bolt</span></div>
-      <div class="target" style="--c: var(--blue)"   data-name="Cloud"><i class="fa-solid fa-cloud"></i><span>Cloud</span></div>
-      <div class="target" style="--c: var(--red)"    data-name="Flame"><i class="fa-solid fa-fire-flame-curved"></i><span>Flame</span></div>
+      <div class="target" style="--c:var(--cyan)"   data-name="Bullseye"><i class="fa-solid fa-bullseye"></i><span>Bullseye</span></div>
+      <div class="target" style="--c:var(--pink)"   data-name="Heart"><i class="fa-solid fa-heart"></i><span>Heart</span></div>
+      <div class="target" style="--c:var(--gold)"   data-name="Star"><i class="fa-solid fa-star"></i><span>Star</span></div>
+      <div class="target" style="--c:var(--green)"  data-name="Leaf"><i class="fa-solid fa-leaf"></i><span>Leaf</span></div>
+      <div class="target" style="--c:var(--purple)" data-name="Music"><i class="fa-solid fa-music"></i><span>Music</span></div>
+      <div class="target" style="--c:var(--orange)" data-name="Bolt"><i class="fa-solid fa-bolt"></i><span>Bolt</span></div>
+      <div class="target" style="--c:var(--blue)"   data-name="Cloud"><i class="fa-solid fa-cloud"></i><span>Cloud</span></div>
+      <div class="target" style="--c:var(--red)"    data-name="Flame"><i class="fa-solid fa-fire-flame-curved"></i><span>Flame</span></div>
     </div>
 
     <h2 class="section">Draggable Cards</h2>
     <div class="cards">
-      <div class="card draggable" style="--c: var(--cyan)" data-drag>
-        <i class="fa-solid fa-cube"></i>
-        <h3>Card Alpha</h3>
-        <p>Pinch + move to drag</p>
+      <div class="card draggable" style="--c:var(--cyan)"   data-drag>
+        <i class="fa-solid fa-cube"></i><h3>Card Alpha</h3><p>Thumb + middle to drag</p>
       </div>
-      <div class="card draggable" style="--c: var(--purple)" data-drag>
-        <i class="fa-solid fa-cube"></i>
-        <h3>Card Beta</h3>
-        <p>Pinch + move to drag</p>
+      <div class="card draggable" style="--c:var(--purple)" data-drag>
+        <i class="fa-solid fa-cube"></i><h3>Card Beta</h3><p>Thumb + middle to drag</p>
       </div>
-      <div class="card draggable" style="--c: var(--orange)" data-drag>
-        <i class="fa-solid fa-cube"></i>
-        <h3>Card Gamma</h3>
-        <p>Pinch + move to drag</p>
+      <div class="card draggable" style="--c:var(--orange)" data-drag>
+        <i class="fa-solid fa-cube"></i><h3>Card Gamma</h3><p>Thumb + middle to drag</p>
       </div>
-    </div>
-
-    <h2 class="section">Controls</h2>
-    <div class="controls">
-      <button class="btn" id="btnPrimary">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> Primary Action
-      </button>
-      <button class="btn ghost" id="btnSecondary">
-        <i class="fa-solid fa-rotate-right"></i> Reset
-      </button>
-
-      <div class="switch" id="sw1">
-        <div class="track"></div>
-        <span class="lbl">Auto‑glow</span>
-      </div>
-
-      <div class="switch" id="sw2">
-        <div class="track"></div>
-        <span class="lbl">Lock cursor</span>
-      </div>
-    </div>
-
-    <h2 class="section">Sliders</h2>
-    <div style="display:flex; gap:32px; flex-wrap:wrap;">
-      <div class="slider-wrap" style="--c: var(--cyan);">
-        <div class="sl-head"><span>Speed</span><b id="v1">50</b></div>
-        <input type="range" class="slider" min="0" max="100" value="50" id="sl1">
-      </div>
-      <div class="slider-wrap" style="--c: var(--pink);">
-        <div class="sl-head"><span>Intensity</span><b id="v2">70</b></div>
-        <input type="range" class="slider" min="0" max="100" value="70" id="sl2">
-      </div>
-      <div class="slider-wrap" style="--c: var(--green);">
-        <div class="sl-head"><span>Volume</span><b id="v3">30</b></div>
-        <input type="range" class="slider" min="0" max="100" value="30" id="sl3">
-      </div>
-    </div>
-
-    <h2 class="section">Palette</h2>
-    <div class="swatches" id="palette">
-      <div class="swatch active" style="--c: var(--cyan)"   data-c="#00e6ff"></div>
-      <div class="swatch" style="--c: var(--pink)"   data-c="#ff5078"></div>
-      <div class="swatch" style="--c: var(--gold)"   data-c="#ffc83c"></div>
-      <div class="swatch" style="--c: var(--green)"  data-c="#22e07a"></div>
-      <div class="swatch" style="--c: var(--purple)" data-c="#a855f7"></div>
-      <div class="swatch" style="--c: var(--orange)" data-c="#ff8a3d"></div>
-      <div class="swatch" style="--c: var(--blue)"   data-c="#3b82f6"></div>
-      <div class="swatch" style="--c: var(--red)"    data-c="#ef4444"></div>
     </div>
 
     <p class="page-end"><i class="fa-solid fa-arrow-down"></i> &nbsp; end of page &nbsp; <i class="fa-solid fa-arrow-down"></i></p>
   </main>
 
-  <!-- ═══════ MediaPipe ═══════ -->
+  <!-- ── MediaPipe ──────────────────────────────── -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
@@ -607,109 +605,189 @@
     /* ═══════════════════════════════════════════════════
        DOM refs
        ═══════════════════════════════════════════════════ */
-    const video       = document.getElementById("video");
-    const cursorEl    = document.getElementById("cursor");
-    const handDot     = document.getElementById("handDot");
-    const handState   = document.getElementById("handState");
-    const actionState = document.getElementById("actionState");
-    const fpsState    = document.getElementById("fpsState");
-    const pillText    = document.getElementById("pillText");
-    const toastEl     = document.getElementById("toast");
+    const video           = document.getElementById("video");
+    const cursorEl        = document.getElementById("cursor");
+    const handDot         = document.getElementById("handDot");
+    const handState       = document.getElementById("handState");
+    const actionState     = document.getElementById("actionState");
+    const scrollModeState = document.getElementById("scrollModeState");
+    const fpsState        = document.getElementById("fpsState");
+    const pillText        = document.getElementById("pillText");
+    const toastEl         = document.getElementById("toast");
+    const jsonArea        = document.getElementById("jsonArea");
+    const paneTuners      = document.getElementById("paneTuners");
+    const paneJson        = document.getElementById("paneJson");
+    const tabTuners       = document.getElementById("tabTuners");
+    const tabJson         = document.getElementById("tabJson");
+    const inputState      = document.getElementById("inputState");
+    const inputLabel      = document.getElementById("inputLabel");
 
     /* ═══════════════════════════════════════════════════
-       Tunables
+       Tuner definitions
        ═══════════════════════════════════════════════════ */
-    const PINCH_START          = 0.055;
-    const PINCH_RELEASE        = 0.075;
-    const PINCH_CONFIRM_FRAMES = 2;       // frames before pinch fires
-    const RELEASE_CONFIRM      = 2;
-    const DRAG_MOVE_THRESHOLD  = 12;      // px
+    const TUNER_DEFS = {
+      baseAlpha:      { group:"Cursor",   label:"Smoothing (still)",     min:0.05, max:1,    step:0.01,  def:0.30 },
+      velocityFactor: { group:"Cursor",   label:"Response (fast)",       min:0,    max:0.1,  step:0.001, def:0.015 },
+      marginX:        { group:"Cursor",   label:"Edge margin X",         min:0,    max:0.3,  step:0.01,  def:0.14 },
+      marginY:        { group:"Cursor",   label:"Edge margin Y",         min:0,    max:0.3,  step:0.01,  def:0.14 },
+      handTimeoutMs:  { group:"Cursor",   label:"Hand→Mouse handoff (ms)",min:100, max:1500, step:10,    def:400   },
 
-    const BASE_ALPHA           = 0.30;    // smoother when still
-    const VELOCITY_FACTOR      = 0.015;   // alpha grows with speed
+      clickPinch:     { group:"Click",    label:"Pinch distance",        min:0.02, max:0.15, step:0.005, def:0.055 },
+      releaseFactor:  { group:"Click",    label:"Release × start",       min:1.05, max:2.5,  step:0.05,  def:1.4   },
+      pinchConfirm:   { group:"Click",    label:"Confirm frames",        min:1,    max:6,    step:1,     def:2     },
 
-    const MARGIN_X             = 0.14;    // ignore outer 14 % on X
-    const MARGIN_Y             = 0.14;    // ... and Y
+      selectHoldMs:   { group:"Select",   label:"Hold to select (ms)",   min:150,  max:1200, step:10,    def:400   },
+      clickMaxMs:     { group:"Select",   label:"Click window (ms)",     min:80,   max:600,  step:10,    def:280   },
 
-    const SCROLL_SENSITIVITY   = 1.6;
-    const SCROLL_DEADZONE      = 0.002;
-    const SCROLL_CLAMP         = 250;
+      dragPinch:      { group:"Drag",     label:"Drag pinch distance",   min:0.02, max:0.15, step:0.005, def:0.060 },
+
+      scrollMode:     { group:"Scroll",   label:"Mode", type:"select",
+                        options:[
+                          ["palm",  "Palm Y (up / down)"],
+                          ["tilt",  "Tilt (wrist angle)"],
+                          ["depth", "Depth push (in / out)"],
+                        ],
+                        def:"palm" },
+      scrollSens:     { group:"Scroll",   label:"Sensitivity",           min:0.2,  max:12,   step:0.1,   def:3.2   },
+      scrollDead:     { group:"Scroll",   label:"Dead-zone",             min:0,    max:0.01, step:0.0001,def:0.0004},
+      scrollMax:      { group:"Scroll",   label:"Max / frame (px)",      min:50,   max:800,  step:10,    def:400   },
+      scrollBoost:    { group:"Scroll",   label:"Velocity boost",        min:0,    max:1.5,  step:0.05,  def:0.6   },
+
+      momentum:       { group:"Momentum", label:"Coast after release",   min:0,    max:0.98, step:0.02,  def:0.55  },
+      momentumDecay:  { group:"Momentum", label:"Decay per frame",       min:0.85, max:0.99, step:0.005, def:0.94  },
+    };
+
+    const STORAGE_KEY = "dex_hand_cursor_config_v3";
+    const T = {};
+    Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].def; });
+
+    (function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          Object.keys(TUNER_DEFS).forEach(k => {
+            if (k in parsed) T[k] = parsed[k];
+          });
+        }
+      } catch {}
+    })();
+    function saveToStorage() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(T)); } catch {}
+    }
 
     /* ═══════════════════════════════════════════════════
-       State
+       State — unified cursor pipeline
        ═══════════════════════════════════════════════════ */
-    let cursorX = innerWidth / 2;
-    let cursorY = innerHeight / 2;
+    const cursorState = {
+      targetX: innerWidth / 2,      // raw desired position (fed by hand OR mouse)
+      targetY: innerHeight / 2,
+      lastHandTime: 0,              // ms — timestamp of last hand frame
+      mouseSeen: false,             // has the physical mouse moved yet?
+      source: "idle",               // "hand" | "mouse" | "idle"
+    };
+
+    let cursorX = cursorState.targetX;
+    let cursorY = cursorState.targetY;
     let smoothX = cursorX, smoothY = cursorY;
     let prevRawX = cursorX, prevRawY = cursorY;
 
-    const pinch = {
-      active: false,
-      startX: 0, startY: 0,
-      isDragging: false,
-      confirm: 0,              // frames the pinch has been held
-      releaseConfirm: 0,
+    const clickPinch = {
+      active: false, confirm: 0, release: 0,
+      startTime: 0, startX: 0, startY: 0,
+      holdTimer: null, moved: false,
     };
-    let scrollLastY = null;
+    const dragPinch = {
+      active:false, confirm:0, release:0,
+      draggedEl:null, offX:0, offY:0,
+    };
 
-    // Median pre-filter on the raw tip
+    const sel = { active:false, anchorNode:null, anchorOffset:0 };
+
+    const scrollState = {
+      lastY:null, lastScale:null,
+      velocity:0, momentum:0, active:false,
+    };
+
     const RAW_HISTORY = 3;
     const rawHist = [];
 
     /* ═══════════════════════════════════════════════════
        Helpers
        ═══════════════════════════════════════════════════ */
-    const dist    = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const dist    = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
     const clamp01 = v => Math.max(0, Math.min(1, v));
+    const clamp   = (v,a,b) => Math.max(a, Math.min(b, v));
 
     function remap(v, margin) {
       const lo = margin, hi = 1 - margin;
       return clamp01((v - lo) / (hi - lo));
     }
-
     function medianFilter(rawX, rawY) {
-      rawHist.push({ x: rawX, y: rawY });
+      rawHist.push({ x:rawX, y:rawY });
       if (rawHist.length > RAW_HISTORY) rawHist.shift();
-      const xs = rawHist.map(p => p.x).slice().sort((a,b) => a-b);
-      const ys = rawHist.map(p => p.y).slice().sort((a,b) => a-b);
-      const m = Math.floor(rawHist.length / 2);
-      return { x: xs[m], y: ys[m] };
+      const xs = rawHist.map(p => p.x).sort((a,b)=>a-b);
+      const ys = rawHist.map(p => p.y).sort((a,b)=>a-b);
+      const m  = Math.floor(rawHist.length / 2);
+      return { x:xs[m], y:ys[m] };
     }
-
-    /** Finger extended = tip farther from wrist than PIP joint. */
     function fingerExtended(lm, tip, pip) {
       const w = lm[0];
       const dTip = Math.hypot(lm[tip].x - w.x, lm[tip].y - w.y);
       const dPip = Math.hypot(lm[pip].x - w.x, lm[pip].y - w.y);
       return dTip > dPip * 1.05;
     }
-
     function isScrollGesture(lm) {
       return (
         fingerExtended(lm, 8, 6)  && !fingerExtended(lm, 16, 14) &&
         fingerExtended(lm, 12, 10) && !fingerExtended(lm, 20, 18)
       );
     }
+    function palmCentreY(lm) {
+      return (lm[0].y + lm[5].y + lm[9].y + lm[13].y + lm[17].y) / 5;
+    }
+    function handScale(lm) {
+      let minX=1, maxX=0, minY=1, maxY=0;
+      for (const p of lm) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+      return Math.hypot(maxX-minX, maxY-minY);
+    }
+    function handAngle(lm) {
+      const vx = lm[9].x - lm[0].x;
+      const vy = lm[9].y - lm[0].y;
+      return Math.atan2(vy, vx);
+    }
 
     /* ═══════════════════════════════════════════════════
-       Synthetic mouse events
+       Mouse event synthesis
        ═══════════════════════════════════════════════════ */
-    function dispatchAt(type, x, y) {
+    function fireMouse(type, x, y, buttons) {
       const el = document.elementFromPoint(x, y) || document.body;
       el.dispatchEvent(new MouseEvent(type, {
-        bubbles: true, cancelable: true,
-        clientX: x, clientY: y,
-        button: 0, buttons: type === "mouseup" ? 0 : 1,
-        view: window,
+        bubbles:true, cancelable:true,
+        clientX:x, clientY:y,
+        button:0, buttons:buttons ?? 0, view:window,
       }));
       return el;
+    }
+    function fireDocMouse(type, x, y, buttons) {
+      document.dispatchEvent(new MouseEvent(type, {
+        bubbles:true, cancelable:true,
+        clientX:x, clientY:y,
+        button:0, buttons:buttons ?? 0, view:window,
+      }));
     }
 
     /* ═══════════════════════════════════════════════════
        Toast
        ═══════════════════════════════════════════════════ */
     let toastTimer = null;
-    function showToast(html, ms = 1400) {
+    function showToast(html, ms=1400) {
       toastEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>' + html;
       toastEl.classList.add("show");
       clearTimeout(toastTimer);
@@ -717,147 +795,7 @@
     }
 
     /* ═══════════════════════════════════════════════════
-       Pinch lifecycle
-       ═══════════════════════════════════════════════════ */
-    function pinchBegin(x, y) {
-      pinch.active     = true;
-      pinch.startX     = x;
-      pinch.startY     = y;
-      pinch.isDragging = false;
-
-      dispatchAt("mousedown", x, y);
-      cursorEl.classList.add("pinching");
-      setAction("Click?");
-    }
-
-    function pinchMove(x, y) {
-      if (!pinch.active) return;
-      const moved = Math.hypot(x - pinch.startX, y - pinch.startY);
-
-      if (!pinch.isDragging && moved > DRAG_MOVE_THRESHOLD) {
-        pinch.isDragging = true;
-        cursorEl.classList.add("dragging");
-        setAction("Drag");
-      }
-      if (pinch.isDragging) {
-        document.dispatchEvent(new MouseEvent("mousemove", {
-          bubbles: true, cancelable: true,
-          clientX: x, clientY: y,
-          button: 0, buttons: 1, view: window,
-        }));
-      }
-    }
-
-    function pinchEnd(x, y) {
-      if (!pinch.active) return;
-      const el = document.elementFromPoint(x, y) || document.body;
-
-      el.dispatchEvent(new MouseEvent("mouseup", {
-        bubbles: true, cancelable: true,
-        clientX: x, clientY: y,
-        button: 0, buttons: 0, view: window,
-      }));
-
-      if (!pinch.isDragging) {
-        el.dispatchEvent(new MouseEvent("click", {
-          bubbles: true, cancelable: true,
-          clientX: x, clientY: y,
-          button: 0, view: window,
-        }));
-        const t = el.closest && el.closest(".target, .btn, .card.draggable");
-        if (t) {
-          t.classList.add("flash");
-          setTimeout(() => t.classList.remove("flash"), 200);
-        }
-      }
-
-      pinch.active         = false;
-      pinch.isDragging     = false;
-      pinch.confirm        = 0;
-      pinch.releaseConfirm = 0;
-      cursorEl.classList.remove("pinching", "dragging");
-      setAction("Move");
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Cursor update (any hand)
-       ═══════════════════════════════════════════════════ */
-    function updateCursor(lm) {
-      const tip = lm[8];
-
-      /* ── 1. Map normalized → screen ── */
-      const rawX = remap(tip.x, MARGIN_X) * innerWidth;
-      const rawY = remap(tip.y, MARGIN_Y) * innerHeight;
-
-      /* ── 2. Median-of-3 pre-filter (kills outlier spikes) ── */
-      const med = medianFilter(rawX, rawY);
-
-      /* ── 3. Velocity-adaptive exponential smoothing ── */
-      const speed = Math.hypot(med.x - prevRawX, med.y - prevRawY);
-      const alpha = Math.min(1, BASE_ALPHA + speed * VELOCITY_FACTOR);
-      prevRawX = med.x;
-      prevRawY = med.y;
-
-      smoothX += (med.x - smoothX) * alpha;
-      smoothY += (med.y - smoothY) * alpha;
-
-      cursorX = smoothX;
-      cursorY = smoothY;
-
-      cursorEl.style.left = cursorX + "px";
-      cursorEl.style.top  = cursorY + "px";
-      cursorEl.classList.add("visible");
-
-      /* ── 4. Pinch detection with multi-frame confirmation ── */
-      const pinchDist = dist(lm[4], lm[8]);
-
-      if (!pinch.active) {
-        if (pinchDist < PINCH_START) {
-          pinch.confirm++;
-          if (pinch.confirm >= PINCH_CONFIRM_FRAMES) {
-            pinchBegin(cursorX, cursorY);
-            pinch.confirm = 0;
-          }
-        } else {
-          pinch.confirm = 0;
-        }
-      } else {
-        if (pinchDist > PINCH_RELEASE) {
-          pinch.releaseConfirm++;
-          if (pinch.releaseConfirm >= RELEASE_CONFIRM) {
-            pinchEnd(cursorX, cursorY);
-          } else {
-            pinchMove(cursorX, cursorY);
-          }
-        } else {
-          pinch.releaseConfirm = 0;
-          pinchMove(cursorX, cursorY);
-        }
-      }
-    }
-
-    /* ═══════════════════════════════════════════════════
-       Scroll update (any hand doing peace sign)
-       ═══════════════════════════════════════════════════ */
-    function updateScroll(lm) {
-      if (!isScrollGesture(lm)) { scrollLastY = null; return; }
-      setAction("Scroll");
-      cursorEl.classList.add("scrollmode");
-
-      const y = (lm[8].y + lm[12].y) * 0.5;
-      if (scrollLastY !== null) {
-        const dy = y - scrollLastY;
-        if (Math.abs(dy) > SCROLL_DEADZONE) {
-          let amount = -dy * SCROLL_SENSITIVITY * innerHeight;
-          amount = Math.max(-SCROLL_CLAMP, Math.min(SCROLL_CLAMP, amount));
-          window.scrollBy(0, amount);
-        }
-      }
-      scrollLastY = y;
-    }
-
-    /* ═══════════════════════════════════════════════════
-       UI helpers
+       Action label
        ═══════════════════════════════════════════════════ */
     let lastAction = "Idle";
     function setAction(text) {
@@ -865,13 +803,374 @@
       lastAction = text;
       actionState.textContent = text;
     }
-    function setHandUI(present) {
-      handDot.classList.toggle("on", present);
-      handState.textContent = present ? "tracking" : "absent";
+
+    /* ═══════════════════════════════════════════════════
+       Input source badge
+       ═══════════════════════════════════════════════════ */
+    let lastSource = "";
+    function setInputSource(src) {
+      if (src === lastSource) return;
+      lastSource = src;
+      inputState.classList.remove("hand", "mouse");
+      if (src === "hand")  { inputState.classList.add("hand");  inputLabel.textContent = "hand"; }
+      else if (src === "mouse") { inputState.classList.add("mouse"); inputLabel.textContent = "mouse"; }
+      else inputLabel.textContent = "idle";
     }
 
     /* ═══════════════════════════════════════════════════
-       FPS meter
+       SELECTION ENGINE
+       ═══════════════════════════════════════════════════ */
+    function caretRangeAt(x, y) {
+      if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+      if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(x, y);
+        if (!pos) return null;
+        const r = document.createRange();
+        r.setStart(pos.offsetNode, pos.offset);
+        r.collapse(true);
+        return r;
+      }
+      return null;
+    }
+    function beginSelection(x, y) {
+      const range = caretRangeAt(x, y);
+      if (!range) return false;
+      sel.active = true;
+      sel.anchorNode = range.startContainer;
+      sel.anchorOffset = range.startOffset;
+
+      const s = window.getSelection();
+      s.removeAllRanges();
+      const r = document.createRange();
+      try {
+        r.setStart(range.startContainer, range.startOffset);
+        r.collapse(true);
+        s.addRange(r);
+      } catch {}
+      cursorEl.classList.add("selecting");
+      setAction("Selecting");
+      return true;
+    }
+    function extendSelection(x, y) {
+      if (!sel.active) return;
+      const range = caretRangeAt(x, y);
+      if (!range) return;
+      const aNode = sel.anchorNode, aOff = sel.anchorOffset;
+      const bNode = range.startContainer, bOff = range.startOffset;
+      const r = document.createRange();
+      try { r.setStart(aNode, aOff); r.setEnd(bNode, bOff); }
+      catch {
+        try { r.setStart(bNode, bOff); r.setEnd(aNode, aOff); }
+        catch { return; }
+      }
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+    function endSelection() {
+      sel.active = false;
+      sel.anchorNode = null;
+      sel.anchorOffset = 0;
+      cursorEl.classList.remove("selecting");
+      setAction("Move");
+    }
+    function clearSelection() {
+      const s = window.getSelection();
+      if (s) s.removeAllRanges();
+      sel.active = false;
+      sel.anchorNode = null;
+      sel.anchorOffset = 0;
+      cursorEl.classList.remove("selecting");
+    }
+
+    /* ═══════════════════════════════════════════════════
+       PINCH → CLICK or SELECT
+       ═══════════════════════════════════════════════════ */
+    function pinchDown(x, y) {
+      clickPinch.active    = true;
+      clickPinch.startTime = performance.now();
+      clickPinch.startX    = x;
+      clickPinch.startY    = y;
+      clickPinch.moved     = false;
+
+      if (sel.active) clearSelection();
+      else if (window.getSelection && window.getSelection().rangeCount > 0)
+        window.getSelection().removeAllRanges();
+
+      clearTimeout(clickPinch.holdTimer);
+      clickPinch.holdTimer = setTimeout(() => {
+        if (!clickPinch.active) return;
+        if (performance.now() - clickPinch.startTime < T.selectHoldMs - 20) return;
+        beginSelection(cursorX, cursorY);
+      }, T.selectHoldMs);
+    }
+    function pinchUp(x, y) {
+      if (!clickPinch.active) return;
+      clearTimeout(clickPinch.holdTimer);
+      const heldMs = performance.now() - clickPinch.startTime;
+
+      if (sel.active) {
+        endSelection();
+      } else if (heldMs <= T.clickMaxMs) {
+        fireMouse("mousedown", x, y, 1);
+        fireMouse("mouseup",   x, y, 0);
+        fireMouse("click",     x, y, 0);
+        const el = document.elementFromPoint(x, y);
+        const t = el && el.closest && el.closest(".target, .card.draggable");
+        if (t) {
+          t.classList.add("flash");
+          setTimeout(() => t.classList.remove("flash"), 200);
+        }
+        setAction("Move");
+      } else {
+        setAction("Move");
+      }
+
+      clickPinch.active  = false;
+      clickPinch.confirm = 0;
+      clickPinch.release = 0;
+      clickPinch.moved   = false;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       DRAG (thumb + middle)
+       ═══════════════════════════════════════════════════ */
+    function dragBegin(x, y) {
+      dragPinch.active = true;
+      const el = document.elementFromPoint(x, y);
+      const grabbable = el && el.closest && el.closest("[data-drag]");
+      if (grabbable) {
+        const r = grabbable.getBoundingClientRect();
+        grabbable.style.position = "fixed";
+        grabbable.style.left = r.left + "px";
+        grabbable.style.top  = r.top  + "px";
+        grabbable.style.width = r.width + "px";
+        grabbable.style.margin = "0";
+        dragPinch.draggedEl = grabbable;
+        dragPinch.offX = x - r.left;
+        dragPinch.offY = y - r.top;
+        grabbable.classList.add("dragging");
+      } else dragPinch.draggedEl = null;
+
+      fireMouse("mousedown", x, y, 1);
+      fireDocMouse("mousedown", x, y, 1);
+      setAction("Drag");
+    }
+    function dragMove(x, y) {
+      if (!dragPinch.active) return;
+      fireDocMouse("mousemove", x, y, 1);
+      if (dragPinch.draggedEl) {
+        dragPinch.draggedEl.style.left = (x - dragPinch.offX) + "px";
+        dragPinch.draggedEl.style.top  = (y - dragPinch.offY) + "px";
+      }
+    }
+    function dragEnd(x, y) {
+      if (!dragPinch.active) return;
+      if (dragPinch.draggedEl) {
+        dragPinch.draggedEl.classList.remove("dragging");
+        dragPinch.draggedEl = null;
+      }
+      fireMouse("mouseup", x, y, 0);
+      fireDocMouse("mouseup", x, y, 0);
+      dragPinch.active = false; dragPinch.confirm = 0; dragPinch.release = 0;
+      setAction("Move");
+    }
+
+    /* ═══════════════════════════════════════════════════
+       HAND → cursor target
+       (does NOT move the DOM here; the RAF loop does)
+       ═══════════════════════════════════════════════════ */
+    function feedHandCursor(lm) {
+      const tip = lm[8];
+      const rawX = remap(tip.x, T.marginX) * innerWidth;
+      const rawY = remap(tip.y, T.marginY) * innerHeight;
+      const med = medianFilter(rawX, rawY);
+
+      cursorState.targetX = med.x;
+      cursorState.targetY = med.y;
+      cursorState.lastHandTime = performance.now();
+    }
+
+    /* ═══════════════════════════════════════════════════
+       Hand gesture logic — runs each MediaPipe frame
+       ═══════════════════════════════════════════════════ */
+    function updateHandGestures(lm) {
+      /* Selection extends on every hand frame too */
+      if (sel.active) extendSelection(cursorX, cursorY);
+
+      const idxDist = dist(lm[4], lm[8]);
+      const midDist = dist(lm[4], lm[12]);
+
+      /* CLICK / SELECT */
+      if (!clickPinch.active) {
+        if (idxDist < T.clickPinch) {
+          clickPinch.confirm++;
+          if (clickPinch.confirm >= T.pinchConfirm) {
+            pinchDown(cursorX, cursorY);
+            clickPinch.confirm = 0;
+          }
+        } else clickPinch.confirm = 0;
+      } else {
+        if (!clickPinch.moved) {
+          const moved = Math.hypot(cursorX - clickPinch.startX,
+                                   cursorY - clickPinch.startY);
+          if (moved > 12) clickPinch.moved = true;
+        }
+        if (idxDist > T.clickPinch * T.releaseFactor) {
+          clickPinch.release++;
+          if (clickPinch.release >= 2) pinchUp(cursorX, cursorY);
+        } else clickPinch.release = 0;
+      }
+
+      /* DRAG */
+      if (!dragPinch.active) {
+        if (midDist < T.dragPinch && !clickPinch.active) {
+          dragPinch.confirm++;
+          if (dragPinch.confirm >= T.pinchConfirm) {
+            dragBegin(cursorX, cursorY);
+            dragPinch.confirm = 0;
+          }
+        } else dragPinch.confirm = 0;
+      } else {
+        dragMove(cursorX, cursorY);
+        if (midDist > T.dragPinch * T.releaseFactor) {
+          dragPinch.release++;
+          if (dragPinch.release >= 2) dragEnd(cursorX, cursorY);
+        } else dragPinch.release = 0;
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       RAF LOOP — the single source of truth for cursor pos
+       ═══════════════════════════════════════════════════ */
+    function cursorLoop() {
+      const now = performance.now();
+      const handIsLive = (now - cursorState.lastHandTime) < T.handTimeoutMs;
+
+      let source;
+      if (handIsLive)              source = "hand";
+      else if (cursorState.mouseSeen) source = "mouse";
+      else                         source = "idle";
+
+      if (source !== cursorState.source) {
+        cursorState.source = source;
+        setInputSource(source);
+      }
+
+      /* Smoothing: instant for mouse, velocity-adaptive for hand */
+      let alpha;
+      if (source === "hand") {
+        const speed = Math.hypot(cursorState.targetX - prevRawX,
+                                 cursorState.targetY - prevRawY);
+        alpha = Math.min(1, T.baseAlpha + speed * T.velocityFactor);
+      } else {
+        alpha = 1;                    // mouse feels native
+      }
+      prevRawX = cursorState.targetX;
+      prevRawY = cursorState.targetY;
+
+      smoothX += (cursorState.targetX - smoothX) * alpha;
+      smoothY += (cursorState.targetY - smoothY) * alpha;
+
+      cursorX = smoothX;
+      cursorY = smoothY;
+
+      cursorEl.style.left = cursorX + "px";
+      cursorEl.style.top  = cursorY + "px";
+
+      if (source !== "idle") cursorEl.classList.add("visible");
+      else                   cursorEl.classList.remove("visible");
+
+      requestAnimationFrame(cursorLoop);
+    }
+    requestAnimationFrame(cursorLoop);
+
+    /* ═══════════════════════════════════════════════════
+       PHYSICAL MOUSE INPUT → target
+       ═══════════════════════════════════════════════════ */
+    window.addEventListener("mousemove", (e) => {
+      // Don't let synthetic mousemove from our own drag/select hijack input
+      if (e.isTrusted === false) return;
+
+      cursorState.targetX = e.clientX;
+      cursorState.targetY = e.clientY;
+      cursorState.mouseSeen = true;
+      // Real mouse motion does NOT touch lastHandTime — so hand stays in
+      // charge until it stops being detected for T.handTimeoutMs.
+      // That gives you instant mouse override because handIsLive will be
+      // false the moment you touch the mouse after the timeout expires.
+      // For *instant* override, uncomment the next line:
+      cursorState.lastHandTime = 0;
+    }, { passive: true });
+
+    /* Also capture mouse moves on window even when cursor is over an iframe etc. */
+    document.addEventListener("mouseenter", () => {
+      cursorState.mouseSeen = true;
+    }, { passive: true });
+
+    /* ═══════════════════════════════════════════════════
+       SCROLL
+       ═══════════════════════════════════════════════════ */
+    function scrollApply(amount) {
+      const scroller = document.scrollingElement || document.documentElement;
+      amount = clamp(amount, -T.scrollMax, T.scrollMax);
+      if (Math.abs(amount) < 0.5) return;
+      scroller.scrollTop += amount;
+      scrollState.velocity = amount;
+    }
+    function updateScroll(lm) {
+      if (!isScrollGesture(lm)) { onScrollEnd(); return; }
+      setAction("Scroll");
+      scrollState.active = true;
+      let amount = 0;
+      const mode = T.scrollMode;
+
+      if (mode === "palm") {
+        const y = palmCentreY(lm);
+        if (scrollState.lastY !== null) {
+          const dy = y - scrollState.lastY;
+          if (Math.abs(dy) > T.scrollDead) {
+            const boost = 1 + Math.abs(dy) * T.scrollBoost * 100;
+            amount = -dy * T.scrollSens * innerHeight * boost;
+          }
+        }
+        scrollState.lastY = y;
+      } else if (mode === "tilt") {
+        const angle = handAngle(lm);
+        const neutral = -Math.PI / 2;
+        let d = angle - neutral;
+        while (d >  Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        if (Math.abs(d) > T.scrollDead * 5) amount = d * T.scrollSens * 30;
+      } else if (mode === "depth") {
+        const scale = handScale(lm);
+        if (scrollState.lastScale !== null) {
+          const ds = scale - scrollState.lastScale;
+          if (Math.abs(ds) > T.scrollDead * 3) amount = ds * T.scrollSens * 900;
+        }
+        scrollState.lastScale = scale;
+      }
+      if (amount !== 0) scrollApply(amount);
+    }
+    function onScrollEnd() {
+      if (scrollState.active && T.momentum > 0)
+        scrollState.momentum = scrollState.velocity * T.momentum;
+      scrollState.active    = false;
+      scrollState.velocity  = 0;
+      scrollState.lastY     = null;
+      scrollState.lastScale = null;
+    }
+    (function momentumLoop() {
+      if (Math.abs(scrollState.momentum) > 0.4) {
+        const scroller = document.scrollingElement || document.documentElement;
+        scroller.scrollTop += scrollState.momentum;
+        scrollState.momentum *= T.momentumDecay;
+      } else scrollState.momentum = 0;
+      requestAnimationFrame(momentumLoop);
+    })();
+
+    /* ═══════════════════════════════════════════════════
+       FPS
        ═══════════════════════════════════════════════════ */
     let frames = 0, lastFpsT = performance.now();
     function tickFps() {
@@ -888,10 +1187,8 @@
        MediaPipe
        ═══════════════════════════════════════════════════ */
     const hands = new Hands({
-      locateFile: f =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
     });
-
     hands.setOptions({
       maxNumHands: 2,
       modelComplexity: 1,
@@ -899,25 +1196,28 @@
       minTrackingConfidence: 0.7,
       selfieMode: true,
     });
-
     hands.onResults(onResults);
 
     function onResults(results) {
       tickFps();
 
       const allLms = results.multiHandLandmarks || [];
-      setHandUI(allLms.length > 0);
+      handDot.classList.toggle("on", allLms.length > 0);
+      handState.textContent = allLms.length > 0 ? "tracking" : "absent";
 
       if (allLms.length === 0) {
-        if (pinch.active) pinchEnd(cursorX, cursorY);
-        cursorEl.classList.remove("visible", "scrollmode");
-        scrollLastY = null;
+        if (clickPinch.active) {
+          clearTimeout(clickPinch.holdTimer);
+          clickPinch.active = false;
+          if (sel.active) endSelection();
+        }
+        if (dragPinch.active) dragEnd(cursorX, cursorY);
+        onScrollEnd();
         rawHist.length = 0;
-        setAction("Idle");
+        // Note: do NOT hide the cursor — the mouse may still be driving it.
         return;
       }
 
-      /* Classify by gesture — no left/right logic */
       let cursorHand = null, scrollHand = null;
       for (const lm of allLms) {
         if (isScrollGesture(lm)) {
@@ -928,136 +1228,150 @@
       }
 
       if (cursorHand) {
-        updateCursor(cursorHand);
-        if (!pinch.active) {
-          cursorEl.classList.remove("scrollmode");
-          setAction("Move");
+        feedHandCursor(cursorHand);
+        updateHandGestures(cursorHand);
+      } else if (clickPinch.active || dragPinch.active) {
+        if (clickPinch.active) {
+          clearTimeout(clickPinch.holdTimer);
+          clickPinch.active = false;
+          if (sel.active) endSelection();
         }
-      } else if (pinch.active) {
-        pinchEnd(cursorX, cursorY);
+        if (dragPinch.active) dragEnd(cursorX, cursorY);
       }
 
       if (scrollHand) updateScroll(scrollHand);
-      else            { scrollLastY = null; cursorEl.classList.remove("scrollmode"); }
+      else            onScrollEnd();
     }
 
     /* ═══════════════════════════════════════════════════
-       Drag helpers (for .draggable cards)
+       Tuner UI
        ═══════════════════════════════════════════════════ */
-    (function setupDraggables() {
-      const cards = document.querySelectorAll("[data-drag]");
-      cards.forEach(card => {
-        // Freeze initial left/top in px so absolute positioning works later.
-        const r = card.getBoundingClientRect();
-        card.style.position = "fixed";
-        card.style.left = r.left + "px";
-        card.style.top  = r.top  + "px";
-        card.style.width = r.width + "px";
-        card.style.margin = "0";
+    function buildTunerUI() {
+      paneTuners.innerHTML = "";
+      const groups = {};
+      Object.keys(TUNER_DEFS).forEach(key => {
+        const def = TUNER_DEFS[key];
+        if (!groups[def.group]) {
+          const g = document.createElement("div");
+          g.className = "tuner-group";
+          g.textContent = def.group;
+          paneTuners.appendChild(g);
+          groups[def.group] = g;
+        }
+        const row = document.createElement("div");
+        row.className = "tuner-row";
+
+        if (def.type === "select") {
+          row.innerHTML = `
+            <label for="t_${key}">${def.label}</label>
+            <select id="t_${key}">
+              ${def.options.map(([v,lbl]) =>
+                `<option value="${v}" ${T[key]===v?"selected":""}>${lbl}</option>`
+              ).join("")}
+            </select>`;
+          paneTuners.appendChild(row);
+          const s = row.querySelector("select");
+          s.addEventListener("change", () => {
+            T[key] = s.value;
+            scrollModeState.textContent = s.options[s.selectedIndex].text.split(" ")[0];
+            saveToStorage(); refreshJson();
+          });
+          return;
+        }
+
+        row.innerHTML = `
+          <label for="t_${key}">${def.label}</label>
+          <input class="num" id="t_${key}" type="number"
+                 min="${def.min}" max="${def.max}" step="${def.step}" value="${T[key]}">
+          <input type="range" id="r_${key}"
+                 min="${def.min}" max="${def.max}" step="${def.step}" value="${T[key]}">
+        `;
+        paneTuners.appendChild(row);
+        const num = row.querySelector(".num");
+        const rng = row.querySelector("input[type=range]");
+        const commit = (v, from) => {
+          v = clamp(v, def.min, def.max);
+          T[key] = v;
+          if (from !== "num") num.value = v;
+          if (from !== "rng") rng.value = v;
+          saveToStorage(); refreshJson();
+        };
+        num.addEventListener("input", () => commit(parseFloat(num.value) || def.def, "num"));
+        rng.addEventListener("input", () => commit(parseFloat(rng.value), "rng"));
       });
 
-      let active = null, offX = 0, offY = 0;
-
-      document.addEventListener("mousedown", e => {
-        const el = e.target.closest && e.target.closest("[data-drag]");
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        active = el;
-        offX = e.clientX - rect.left;
-        offY = e.clientY - rect.top;
-        el.classList.add("dragging");
-      });
-
-      document.addEventListener("mousemove", e => {
-        if (!active) return;
-        active.style.left = (e.clientX - offX) + "px";
-        active.style.top  = (e.clientY - offY) + "px";
-      });
-
-      document.addEventListener("mouseup", () => {
-        if (!active) return;
-        active.classList.remove("dragging");
-        active = null;
-      });
-    })();
+      const modeDef = TUNER_DEFS.scrollMode;
+      const found = modeDef.options.find(([v]) => v === T.scrollMode);
+      if (found) scrollModeState.textContent = found[1].split(" ")[0];
+    }
 
     /* ═══════════════════════════════════════════════════
-       Sliders — hand-driven via synthetic mouse events
+       Config JSON
        ═══════════════════════════════════════════════════ */
-    (function setupSliders() {
-      let activeSlider = null;
+    function getConfigJSON() {
+      return JSON.stringify({
+        app: "dex-hand-cursor",
+        version: 3,
+        savedAt: new Date().toISOString(),
+        config: { ...T },
+      }, null, 2);
+    }
+    let jsonDirtyFromUser = false;
+    function refreshJson() {
+      if (jsonDirtyFromUser) return;
+      jsonArea.value = getConfigJSON();
+    }
+    jsonArea.addEventListener("input", () => { jsonDirtyFromUser = true; });
 
-      function applyValue(slider, clientX) {
-        const r = slider.getBoundingClientRect();
-        const t = clamp01((clientX - r.left) / r.width);
-        const min = parseFloat(slider.min), max = parseFloat(slider.max);
-        slider.value = Math.round(min + t * (max - min));
-        slider.dispatchEvent(new Event("input", { bubbles: true }));
+    function applyConfigFromText() {
+      try {
+        const parsed = JSON.parse(jsonArea.value);
+        const cfg = parsed.config || parsed;
+        Object.keys(TUNER_DEFS).forEach(k => { if (k in cfg) T[k] = cfg[k]; });
+        buildTunerUI();
+        const modeDef = TUNER_DEFS.scrollMode;
+        const found = modeDef.options.find(([v]) => v === T.scrollMode);
+        if (found) scrollModeState.textContent = found[1].split(" ")[0];
+        saveToStorage();
+        jsonDirtyFromUser = false;
+        refreshJson();
+        showToast("Config applied");
+      } catch (e) {
+        showToast("Invalid JSON — check the format");
+        console.error(e);
       }
+    }
 
-      document.addEventListener("mousedown", e => {
-        const s = e.target.closest && e.target.closest('input[type="range"]');
-        if (!s) return;
-        activeSlider = s;
-        applyValue(s, e.clientX);
-      });
-      document.addEventListener("mousemove", e => {
-        if (!activeSlider) return;
-        applyValue(activeSlider, e.clientX);
-      });
-      document.addEventListener("mouseup", () => { activeSlider = null; });
+    document.getElementById("copyJson").addEventListener("click", () => {
+      const text = getConfigJSON();
+      navigator.clipboard.writeText(text).then(
+        () => showToast("Config copied to clipboard"),
+        () => { jsonArea.select(); document.execCommand("copy"); showToast("Config copied"); }
+      );
+    });
+    document.getElementById("applyJson").addEventListener("click", applyConfigFromText);
+    document.getElementById("resetTuner").addEventListener("click", () => {
+      Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].def; });
+      buildTunerUI(); saveToStorage();
+      jsonDirtyFromUser = false; refreshJson();
+      showToast("Tuners reset to defaults");
+    });
+    document.getElementById("tunerToggle").addEventListener("click", () => {
+      document.getElementById("tuner").classList.toggle("collapsed");
+    });
+    tabTuners.addEventListener("click", () => {
+      tabTuners.classList.add("active"); tabJson.classList.remove("active");
+      paneTuners.classList.remove("hidden"); paneJson.classList.add("hidden");
+    });
+    tabJson.addEventListener("click", () => {
+      tabJson.classList.add("active"); tabTuners.classList.remove("active");
+      paneJson.classList.remove("hidden"); paneTuners.classList.add("hidden");
+      jsonDirtyFromUser = false;
+      refreshJson();
+    });
 
-      // Wire readouts
-      const map = [
-        ["sl1", "v1"], ["sl2", "v2"], ["sl3", "v3"],
-      ];
-      map.forEach(([sid, vid]) => {
-        const s = document.getElementById(sid);
-        const v = document.getElementById(vid);
-        s.addEventListener("input", () => { v.textContent = s.value; });
-      });
-    })();
-
-    /* ═══════════════════════════════════════════════════
-       Switches / buttons / palette
-       ═══════════════════════════════════════════════════ */
-    (function setupMisc() {
-      document.querySelectorAll(".switch").forEach(sw => {
-        sw.addEventListener("click", () => {
-          sw.classList.toggle("on");
-          showToast(`<b>${sw.querySelector(".lbl").textContent}</b> turned ${sw.classList.contains("on") ? "ON" : "OFF"}`);
-        });
-      });
-
-      const btnPrimary = document.getElementById("btnPrimary");
-      btnPrimary.addEventListener("click", () => {
-        btnPrimary.classList.add("flash");
-        setTimeout(() => btnPrimary.classList.remove("flash"), 200);
-        showToast("Primary action fired");
-      });
-
-      document.getElementById("btnSecondary").addEventListener("click", () => {
-        showToast("Reset complete");
-      });
-
-      const palette = document.getElementById("palette");
-      const root = document.documentElement;
-      palette.addEventListener("click", e => {
-        const sw = e.target.closest && e.target.closest(".swatch");
-        if (!sw) return;
-        palette.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
-        sw.classList.add("active");
-        root.style.setProperty("--cyan", sw.dataset.c);   // re-tint accent
-        showToast(`Accent → <b style="color:${sw.dataset.c}">${sw.dataset.c}</b>`);
-      });
-
-      // Target click feedback
-      document.querySelectorAll(".target").forEach(t => {
-        t.addEventListener("click", () => {
-          showToast(`Clicked target <b>${t.dataset.name}</b>`);
-        });
-      });
-    })();
+    buildTunerUI();
+    refreshJson();
 
     /* ═══════════════════════════════════════════════════
        Camera boot
@@ -1065,13 +1379,10 @@
     async function startCamera() {
       try {
         pillText.textContent = "Requesting camera…";
-
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 },
-                   facingMode: "user" },
+          video: { width:{ideal:640}, height:{ideal:480}, facingMode:"user" },
           audio: false,
         });
-
         video.srcObject = stream;
         await new Promise(res => {
           if (video.readyState >= 1) return res();
@@ -1084,27 +1395,28 @@
           width: 640, height: 480,
         });
         cam.start();
-
         pillText.textContent = "Camera live — tracking hands";
       } catch (err) {
         console.error("Camera error:", err);
-        pillText.textContent = "Camera blocked — allow access & reload";
-        setAction("Camera denied");
+        pillText.textContent = "Camera blocked — mouse mode active";
+        cursorState.mouseSeen = true;
       }
     }
-
     startCamera();
 
     /* ═══════════════════════════════════════════════════
-       Keyboard / resize
+       Keyboard
        ═══════════════════════════════════════════════════ */
     addEventListener("keydown", e => {
       if (e.key === "Escape") {
         document.body.style.cursor =
           document.body.style.cursor === "none" ? "default" : "none";
       }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "c") {
+        clearSelection();
+        showToast("Selection cleared");
+      }
     });
-
     addEventListener("resize", () => {
       smoothX = Math.min(smoothX, innerWidth  - 1);
       smoothY = Math.min(smoothY, innerHeight - 1);
