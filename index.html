@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>DeX Hand Cursor · Fixed Worker</title>
+<title>DeX Hand Cursor · SVG</title>
 <link rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -32,17 +32,27 @@
   #video{position:fixed;left:-10000px;top:0;width:640px;height:480px;
     opacity:0;pointer-events:none}
 
+  /* ═════════ SVG cursor ═════════
+     Tip sits at SVG coordinate (0,0), which maps to pixel (4,2)
+     inside the 24×27 rendered box. The JS loop subtracts (4,2)
+     from cursor.x/y so the tip lands exactly on the click point. */
   #cursor{
-    position:fixed;left:0;top:0;width:20px;height:20px;border-radius:50%;
-    background:#fff;border:2px solid rgba(0,0,0,.85);
-    pointer-events:none;z-index:2147483647;
-    transform:translate3d(0,0,0);opacity:0;
-    transition:opacity .1s,width .08s,height .08s,background .08s;
+    position:fixed;left:0;top:0;
+    width:24px;height:27px;
+    pointer-events:none;
+    z-index:2147483647;
+    opacity:0;
+    transition:opacity .1s;
     will-change:transform;
   }
   #cursor.visible{opacity:1}
-  #cursor.selecting{width:22px;height:22px;background:transparent;
-    border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55) inset}
+  #cursor svg{display:block;width:100%;height:100%;overflow:visible}
+  #cursor path{
+    /* the ONE visible colour — swapped between #ffffff and #000000 by JS */
+    fill:#ffffff;
+    stroke:none;
+    shape-rendering:geometricPrecision;
+  }
 
   .cal-overlay{
     position:fixed;inset:0;z-index:2147483646;
@@ -69,13 +79,12 @@
     border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.6px;
     text-transform:uppercase;background:rgba(255,255,255,.05);
     border:1px solid rgba(255,255,255,.1);color:var(--muted);
-    transition:background .15s,color .15s,border-color .15s;
   }
   .cal-badge.ok{background:rgba(34,224,122,.12);border-color:rgba(34,224,122,.5);color:var(--green)}
   .cal-badge.warn{background:rgba(255,80,120,.12);border-color:rgba(255,80,120,.5);color:var(--pink)}
 
   .cal-target{position:absolute;width:80px;height:80px;transform:translate(-50%,-50%);
-    pointer-events:none;transition:opacity .25s}
+    pointer-events:none}
   .cal-target .ring{position:absolute;inset:0;border-radius:50%;
     border:2.5px solid var(--cyan);
     box-shadow:0 0 26px rgba(0,230,255,.55),inset 0 0 26px rgba(0,230,255,.25);
@@ -95,7 +104,6 @@
     font-size:15px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
     border-radius:14px;border:none;cursor:pointer;
     display:inline-flex;align-items:center;justify-content:center;gap:10px;
-    transition:transform .12s,filter .12s;
     box-shadow:0 12px 34px rgba(0,230,255,.3);
     background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111a}
   .cal-btn:not(:disabled):active{transform:scale(.96)}
@@ -108,7 +116,7 @@
   .cal-progress{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);
     display:flex;gap:10px}
   .cal-progress .step{width:50px;height:6px;border-radius:999px;
-    background:rgba(255,255,255,.1);transition:background .3s,box-shadow .3s}
+    background:rgba(255,255,255,.1)}
   .cal-progress .step.done{background:var(--green);box-shadow:0 0 12px rgba(34,224,122,.7)}
   .cal-progress .step.current{background:var(--cyan);
     box-shadow:0 0 12px rgba(0,230,255,.7);animation:cal-pulse 1.2s ease-in-out infinite}
@@ -129,8 +137,7 @@
   .status-grid .k{color:var(--muted);font-weight:600}
   .status-grid .v{color:var(--text);font-weight:700;text-align:right}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
-    background:#3a4258;margin-right:5px;vertical-align:middle;
-    transition:background .15s,box-shadow .15s}
+    background:#3a4258;margin-right:5px;vertical-align:middle}
   .dot.on{background:var(--green);box-shadow:0 0 8px rgba(34,224,122,.8)}
   .panel .hint{font-size:10.5px;color:var(--muted);line-height:1.6}
   .panel .hint b{color:#c8d2e6;font-weight:600}
@@ -178,14 +185,14 @@
     border:1px solid rgba(255,255,255,.09);color:var(--text);
     font-family:ui-monospace,monospace;font-size:12px;padding:6px 8px;
     border-radius:8px;text-align:right;font-weight:600}
-  .tuner-row .num:focus{outline:none;border-color:var(--cyan);background:rgba(0,230,255,.05)}
-  .tuner-row input[type=range]{grid-column:1/-1;-webkit-appearance:none;appearance:none;
-    width:100%;height:24px;background:transparent;outline:none;margin-top:2px;padding:0}
+  .tuner-row input[type=range]{grid-column:1/-1;-webkit-appearance:none;
+    appearance:none;width:100%;height:24px;background:transparent;outline:none;
+    margin-top:2px;padding:0}
   .tuner-row input[type=range]::-webkit-slider-runnable-track{
     height:6px;border-radius:999px;background:rgba(255,255,255,.09)}
   .tuner-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
     width:24px;height:24px;border-radius:50%;background:#fff;
-    border:2px solid #0b0e14;margin-top:-9px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+    border:2px solid #0b0e14;margin-top:-9px}
   .tuner-row input[type=range]::-moz-range-track{
     height:6px;border-radius:999px;background:rgba(255,255,255,.09)}
   .tuner-row input[type=range]::-moz-range-thumb{
@@ -234,6 +241,22 @@
     display:flex;align-items:center;gap:10px}
   h2.section::after{content:'';flex:1;height:1px;
     background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
+
+  /* ── Colour-test zones ── */
+  .colour-strip{
+    display:grid;grid-template-columns:repeat(6,1fr);
+    gap:0;border-radius:16px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.08);
+    margin-bottom:20px;
+  }
+  @media (max-width:700px){.colour-strip{grid-template-columns:repeat(3,1fr)}}
+  .colour-strip div{
+    aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:700;letter-spacing:.5px;
+    text-transform:uppercase;user-select:none;
+  }
+
   .target-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
   @media (max-width:800px){.target-grid{grid-template-columns:repeat(2,1fr)}}
   .target{position:relative;aspect-ratio:1/1;border-radius:20px;
@@ -273,7 +296,25 @@
 </head>
 <body>
 
-<div id="cursor"></div>
+<!-- ═════════ SVG CURSOR ═════════
+     Tip is at path coordinate (0,0). viewBox starts at (-20,-10),
+     so the tip sits at pixel (4,2) inside the 24×27 rendered box.
+     The JS loop places the div at (cursorX-4, cursorY-2) so the tip
+     lands exactly on the click point. -->
+<div id="cursor" aria-hidden="true">
+  <svg viewBox="-20 -10 120 135" xmlns="http://www.w3.org/2000/svg">
+    <path id="cursorPath"
+          d="M 0 0
+             L 76 52
+             Q 90 60 78 70
+             L 48 78
+             Q 34 84 26 100
+             Q 20 112 12 100
+             L -10 26
+             Q -14 8 0 0 Z" />
+  </svg>
+</div>
+
 <video id="video" autoplay playsinline muted></video>
 
 <!-- CALIBRATION -->
@@ -327,8 +368,8 @@
     <div class="v" id="pipelineState">—</div>
     <div class="k">FPS</div>
     <div class="v" id="fpsState">—</div>
-    <div class="k">Calibration</div>
-    <div class="v" id="calState">—</div>
+    <div class="k">Cursor colour</div>
+    <div class="v" id="colorState">white</div>
   </div>
   <div class="hint">
     <i class="fa-solid fa-arrow-pointer"></i><b>Index</b> → move<br>
@@ -338,7 +379,7 @@
     <i class="fa-solid fa-hand-peace"></i><b>Peace</b> → scroll
   </div>
   <div class="hint" style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;">
-    <kbd>R</kbd> recalibrate &nbsp;<kbd>D</kbd> diagnostics
+    <kbd>R</kbd> recalibrate
   </div>
 </div>
 
@@ -373,21 +414,35 @@
 <div class="toast" id="toast"></div>
 
 <main>
+  <h2 class="section">Cursor colour test — move over each tile</h2>
+  <div class="colour-strip">
+    <div style="background:#000000;color:#fff">Black</div>
+    <div style="background:#1a1a1a;color:#fff">Dark</div>
+    <div style="background:#555555;color:#fff">Mid</div>
+    <div style="background:#aaaaaa;color:#000">Light</div>
+    <div style="background:#e8e8e8;color:#000">Near white</div>
+    <div style="background:#ffffff;color:#000">White</div>
+  </div>
+  <p style="font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:30px">
+    The cursor should flip between <b style="color:#fff">white</b> on the left half
+    and <b style="color:#000;background:#fff;padding:0 4px;border-radius:3px">black</b>
+    on the right half. Notice it only has 2 states — never grey.
+  </p>
+
   <h2 class="section">Selectable Text</h2>
   <div class="text-block">
-    <h3>Fixed: hands now detected</h3>
+    <h3>How the colour flip works</h3>
     <p>
-      The worker used to feed a raw <code>ImageBitmap</code> straight into
-      <code>hands.send()</code>, which MediaPipe silently rejects. Now the worker
-      draws each frame onto an <b>OffscreenCanvas</b> first — the format MediaPipe
-      actually consumes — and awaits <code>hands.initialize()</code> before
-      reporting ready. If nothing is detected within 4&nbsp;s, the page auto-falls-back
-      to main-thread inference.
+      Every few frames the loop asks <code>document.elementFromPoint</code> what's
+      under the cursor, walks up the DOM until it finds an element with a non-transparent
+      background, and computes its <b>perceptual luminance</b> using the sRGB weights
+      <code>0.2126·R + 0.7152·G + 0.0722·B</code>. If luminance &gt; 0.5 the cursor turns
+      black, otherwise white.
     </p>
     <p>
-      Press <kbd>D</kbd> to toggle diagnostics, or watch the <b>Pipeline</b> row
-      in the panel — it shows <code>sent / processed / hands</code> every second so
-      you can see exactly where things stall.
+      A 3-frame <b>hysteresis</b> prevents flicker when you cross the boundary between
+      a light and dark element. The cursor is a single SVG path with one fill value —
+      no strokes, no shadows, no gradients — so it uses exactly 2 colours overall.
     </p>
   </div>
 
@@ -423,42 +478,24 @@
 
 <!-- ═════════ INLINE WORKER SOURCE ═════════ -->
 <script type="text/plain" id="workerSrc">
-/* ============================================================
-   MediaPipe Hands inside a Web Worker — fixed version
-   ============================================================ */
-
-/* ── 1. Polyfill the pieces MediaPipe touches on `self` ── */
-if (typeof self.window === 'undefined') {
-  self.window = self;                 /* some builds check for `window` */
-}
+if (typeof self.window === 'undefined') self.window = self;
 if (typeof self.document === 'undefined') {
   self.document = {
     createElement: function (tag) {
       if (tag === 'canvas' || tag === 'CANVAS') {
         if (typeof OffscreenCanvas !== 'undefined') {
-          var c = new OffscreenCanvas(1, 1);
-          c.style = {};
-          return c;
+          var c = new OffscreenCanvas(1, 1); c.style = {}; return c;
         }
-        /* Fallback: minimal stub — MediaPipe will use its own canvas */
-        return {
-          style: {}, width: 1, height: 1,
+        return { style: {}, width: 1, height: 1,
           getContext: function () { return null; },
-          appendChild: function () {}, removeChild: function () {},
-        };
+          appendChild: function () {}, removeChild: function () {} };
       }
-      return {
-        style: {},
-        appendChild: function () {},
-        removeChild: function () {},
-        addEventListener: function () {},
-        removeEventListener: function () {},
-      };
+      return { style: {}, appendChild: function () {}, removeChild: function () {},
+        addEventListener: function () {}, removeEventListener: function () {} };
     },
     createElementNS: function () { return self.document.createElement('canvas'); },
     currentScript: { src: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js' },
-    addEventListener: function () {},
-    removeEventListener: function () {},
+    addEventListener: function () {}, removeEventListener: function () {},
     body: { appendChild: function () {}, removeChild: function () {} },
     head: { appendChild: function () {}, removeChild: function () {} },
   };
@@ -467,45 +504,19 @@ if (typeof self.document === 'undefined') {
   self.HTMLCanvasElement = self.HTMLCanvasElement || function () {};
 }
 
-/* ── 2. Diagnostic counters ── */
-var diag = { framesSent: 0, framesProcessed: 0, resultsWithHands: 0, lastError: null };
+var diag = { framesSent: 0, framesProcessed: 0, resultsWithHands: 0 };
+function post(type, data) { self.postMessage(Object.assign({ type: type }, data || {})); }
 
-function post(type, data) {
-  self.postMessage(Object.assign({ type: type }, data || {}));
-}
-
-/* ── 3. Load MediaPipe from CDN ── */
 var CDN_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/';
+try { importScripts(CDN_BASE + 'hands.js'); }
+catch (err) { post('error', { message: 'importScripts failed: ' + String(err && err.message ? err.message : err) }); throw err; }
 
-try {
-  importScripts(CDN_BASE + 'hands.js');
-} catch (err) {
-  post('error', {
-    message: 'importScripts failed: ' + String(err && err.message ? err.message : err),
-  });
-  throw err;
-}
+if (typeof Hands !== 'function') { post('error', { message: 'Hands global missing' }); throw new Error('Hands not defined'); }
 
-/* Verify the global actually exists */
-if (typeof Hands !== 'function') {
-  post('error', { message: 'Hands global missing after importScripts' });
-  throw new Error('Hands not defined');
-}
+var hands = new Hands({ locateFile: function (f) { return CDN_BASE + f; } });
+hands.setOptions({ maxNumHands: 2, modelComplexity: 1,
+  minDetectionConfidence: 0.5, minTrackingConfidence: 0.5, selfieMode: true });
 
-/* ── 4. Instantiate the model ── */
-var hands = new Hands({
-  locateFile: function (f) { return CDN_BASE + f; },
-});
-
-hands.setOptions({
-  maxNumHands: 2,
-  modelComplexity: 1,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5,
-  selfieMode: true,
-});
-
-/* ── 5. Result handler ── */
 hands.onResults(function (results) {
   diag.framesProcessed++;
   var out = [];
@@ -514,106 +525,51 @@ hands.onResults(function (results) {
     for (var i = 0; i < results.multiHandLandmarks.length; i++) {
       var lm = results.multiHandLandmarks[i];
       var arr = [];
-      for (var j = 0; j < lm.length; j++) {
-        arr.push({ x: lm[j].x, y: lm[j].y, z: lm[j].z });
-      }
+      for (var j = 0; j < lm.length; j++) arr.push({ x: lm[j].x, y: lm[j].y, z: lm[j].z });
       out.push(arr);
     }
   }
   post('results', { hands: out });
 });
 
-/* ── 6. Initialise the model BEFORE posting ready ── */
 var ready = false;
-
-function postReady() {
-  if (ready) return;
-  ready = true;
-  post('ready');
-}
-
+function postReady() { if (ready) return; ready = true; post('ready'); }
 if (typeof hands.initialize === 'function') {
-  hands.initialize()
-    .then(postReady)
-    .catch(function (err) {
-      post('error', {
-        message: 'hands.initialize failed: ' +
-          String(err && err.message ? err.message : err),
-      });
-    });
-} else {
-  /* Older builds don't expose initialize(); send a no-op frame to warm up */
-  postReady();
-}
+  hands.initialize().then(postReady).catch(function (err) {
+    post('error', { message: 'initialize: ' + String(err && err.message ? err.message : err) });
+  });
+} else { postReady(); }
 
-/* ── 7. Frame handling: draw bitmap → OffscreenCanvas → send ── */
-var busy = false;
-var pending = null;
-var workCanvas = null;
-var workCtx = null;
-
+var busy = false, pending = null, workCanvas = null, workCtx = null;
 function ensureCanvas(w, h) {
   if (!workCanvas || workCanvas.width !== w || workCanvas.height !== h) {
     workCanvas = new OffscreenCanvas(w, h);
-    workCtx = workCanvas.getContext('2d', { willReadFrequently: false });
+    workCtx = workCanvas.getContext('2d');
   }
 }
-
 function processFrame(bitmap) {
   diag.framesSent++;
-
-  try {
-    ensureCanvas(bitmap.width, bitmap.height);
-    workCtx.drawImage(bitmap, 0, 0);
-  } catch (err) {
-    try { bitmap.close(); } catch (_) {}
-    post('error', { message: 'drawImage failed: ' + String(err) });
-    return Promise.resolve();
-  }
-
+  try { ensureCanvas(bitmap.width, bitmap.height); workCtx.drawImage(bitmap, 0, 0); }
+  catch (err) { try { bitmap.close(); } catch (_) {} return Promise.resolve(); }
   try { bitmap.close(); } catch (_) {}
-
-  return hands.send({ image: workCanvas })
-    .catch(function (err) {
-      post('error', {
-        message: 'hands.send failed: ' + String(err && err.message ? err.message : err),
-      });
-    });
+  return hands.send({ image: workCanvas }).catch(function (err) {
+    post('error', { message: 'send: ' + String(err && err.message ? err.message : err) });
+  });
 }
-
 function handleFrame(bitmap) {
-  if (busy) {
-    if (pending) { try { pending.close(); } catch (_) {} }
-    pending = bitmap;
-    return;
-  }
+  if (busy) { if (pending) { try { pending.close(); } catch (_) {} } pending = bitmap; return; }
   busy = true;
   processFrame(bitmap).then(function () {
     busy = false;
-    if (pending) {
-      var b = pending; pending = null;
-      handleFrame(b);
-    }
+    if (pending) { var b = pending; pending = null; handleFrame(b); }
   });
 }
-
-/* ── 8. Message handler ── */
 self.onmessage = function (e) {
-  var msg = e.data;
-  if (!msg) return;
-  if (msg.type === 'frame' && msg.bitmap) {
-    handleFrame(msg.bitmap);
-  } else if (msg.type === 'options' && msg.options) {
-    try { hands.setOptions(msg.options); } catch (_) {}
-  } else if (msg.type === 'diag') {
-    post('diag', { stats: diag });
-  }
+  var msg = e.data; if (!msg) return;
+  if (msg.type === 'frame' && msg.bitmap) handleFrame(msg.bitmap);
+  else if (msg.type === 'diag') post('diag', { stats: diag });
 };
-
-/* ── 9. Heartbeat ── */
-setInterval(function () {
-  post('diag', { stats: diag });
-}, 2000);
+setInterval(function () { post('diag', { stats: diag }); }, 2000);
 </script>
 
 <script>
@@ -621,31 +577,40 @@ setInterval(function () {
   "use strict";
 
   /* ═════════ DOM refs ═════════ */
-  const video        = document.getElementById("video");
-  const cursorEl     = document.getElementById("cursor");
-  const handDot      = document.getElementById("handDot");
-  const handState    = document.getElementById("handState");
-  const actionState  = document.getElementById("actionState");
-  const workerState  = document.getElementById("workerState");
-  const pipelineState= document.getElementById("pipelineState");
-  const fpsState     = document.getElementById("fpsState");
-  const calState     = document.getElementById("calState");
-  const pillText     = document.getElementById("pillText");
-  const toastEl      = document.getElementById("toast");
-  const jsonArea     = document.getElementById("jsonArea");
-  const paneTuners   = document.getElementById("paneTuners");
-  const paneJson     = document.getElementById("paneJson");
-  const tabTuners    = document.getElementById("tabTuners");
-  const tabJson      = document.getElementById("tabJson");
-  const calOverlay   = document.getElementById("calOverlay");
-  const calTarget    = document.getElementById("calTarget");
-  const calHandBadge = document.getElementById("calHandBadge");
-  const calHandText  = document.getElementById("calHandText");
-  const calCornerText= document.getElementById("calCornerText");
-  const calConfirm   = document.getElementById("calConfirm");
-  const calBack      = document.getElementById("calBack");
-  const calCancel    = document.getElementById("calCancel");
-  const calProgress  = document.getElementById("calProgress");
+  const video         = document.getElementById("video");
+  const cursorEl      = document.getElementById("cursor");
+  const cursorPath    = document.getElementById("cursorPath");
+  const handDot       = document.getElementById("handDot");
+  const handState     = document.getElementById("handState");
+  const actionState   = document.getElementById("actionState");
+  const workerState   = document.getElementById("workerState");
+  const pipelineState = document.getElementById("pipelineState");
+  const fpsState      = document.getElementById("fpsState");
+  const colorState    = document.getElementById("colorState");
+  const calState      = document.getElementById("calState");
+  const pillText      = document.getElementById("pillText");
+  const toastEl       = document.getElementById("toast");
+  const jsonArea      = document.getElementById("jsonArea");
+  const paneTuners    = document.getElementById("paneTuners");
+  const paneJson      = document.getElementById("paneJson");
+  const tabTuners     = document.getElementById("tabTuners");
+  const tabJson       = document.getElementById("tabJson");
+  const calOverlay    = document.getElementById("calOverlay");
+  const calTarget     = document.getElementById("calTarget");
+  const calHandBadge  = document.getElementById("calHandBadge");
+  const calHandText   = document.getElementById("calHandText");
+  const calCornerText = document.getElementById("calCornerText");
+  const calConfirm    = document.getElementById("calConfirm");
+  const calBack       = document.getElementById("calBack");
+  const calCancel     = document.getElementById("calCancel");
+  const calProgress   = document.getElementById("calProgress");
+
+  /* ═════════ Cursor tip offset ═════════
+     viewBox="-20 -10 120 135", rendered 24×27.
+     Tip at SVG (0,0) → pixel (20/120*24, 10/135*27) = (4, 2).
+     So we place the div at (cursorX - 4, cursorY - 2). */
+  const TIP_OFF_X = 4;
+  const TIP_OFF_Y = 2;
 
   /* ═════════ Tuner ═════════ */
   const TUNER_DEFS = {
@@ -670,8 +635,8 @@ setInterval(function () {
     momentumDecay:{g:"Momentum",  l:"Decay per frame",    min:0.85,max:0.99,step:0.005,d:0.94},
   };
 
-  const CFG_KEY = "dex_fix_cfg_v1";
-  const CAL_KEY = "dex_fix_cal_v1";
+  const CFG_KEY = "dex_svg_cfg_v1";
+  const CAL_KEY = "dex_svg_cal_v1";
 
   const T = {};
   Object.keys(TUNER_DEFS).forEach(k => { T[k] = TUNER_DEFS[k].d; });
@@ -682,9 +647,7 @@ setInterval(function () {
       Object.keys(TUNER_DEFS).forEach(k => { if (k in p) T[k] = p[k]; });
     }
   } catch (_) {}
-  const saveCfg = () => {
-    try { localStorage.setItem(CFG_KEY, JSON.stringify(T)); } catch (_) {}
-  };
+  const saveCfg = () => { try { localStorage.setItem(CFG_KEY, JSON.stringify(T)); } catch (_) {} };
 
   /* ═════════ Helpers ═════════ */
   const clamp01 = v => Math.max(0, Math.min(1, v));
@@ -701,21 +664,65 @@ setInterval(function () {
     return fingerExtended(lm, 8, 6) && !fingerExtended(lm, 16, 14) &&
            fingerExtended(lm, 12, 10) && !fingerExtended(lm, 20, 18);
   }
-  function palmY(lm) {
-    return (lm[0].y + lm[5].y + lm[9].y + lm[13].y + lm[17].y) / 5;
-  }
+  function palmY(lm) { return (lm[0].y + lm[5].y + lm[9].y + lm[13].y + lm[17].y) / 5; }
   function handSpan(lm) {
     let a = 1, b = 0, c = 1, d = 0;
     for (const p of lm) {
-      if (p.x < a) a = p.x;
-      if (p.x > b) b = p.x;
-      if (p.y < c) c = p.y;
-      if (p.y > d) d = p.y;
+      if (p.x < a) a = p.x; if (p.x > b) b = p.x;
+      if (p.y < c) c = p.y; if (p.y > d) d = p.y;
     }
     return Math.hypot(b - a, d - c);
   }
-  function handAngle(lm) {
-    return Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x);
+  function handAngle(lm) { return Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x); }
+
+  /* ═════════ Cursor colour sampling ═════════ */
+  /* Walk up the DOM from the element under (x,y) until we find a
+     non-transparent backgroundColor. Return its perceptual luminance. */
+  const _rgbRe = /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/;
+  function bgLuminanceAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return 0;
+    let node = el;
+    while (node && node !== document.documentElement) {
+      const bg = getComputedStyle(node).backgroundColor;
+      const m = bg.match(_rgbRe);
+      if (m) {
+        const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+        if (a > 0.15) {
+          const r = parseFloat(m[1]) / 255;
+          const g = parseFloat(m[2]) / 255;
+          const b = parseFloat(m[3]) / 255;
+          // sRGB luminance (Rec. 709 weights)
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+      }
+      node = node.parentElement;
+    }
+    return 0;   // default: assume dark → white cursor
+  }
+
+  const WHITE = "#ffffff";
+  const BLACK = "#000000";
+  let currentCursorColor = WHITE;
+  let pendingColor = WHITE;
+  let pendingColorCount = 0;
+
+  function updateCursorColor() {
+    const lum = bgLuminanceAt(cursor.x, cursor.y);
+    const desired = lum > 0.5 ? BLACK : WHITE;
+
+    if (desired === currentCursorColor) {
+      pendingColorCount = 0;
+      return;
+    }
+    if (desired !== pendingColor) { pendingColor = desired; pendingColorCount = 1; return; }
+    pendingColorCount++;
+    if (pendingColorCount >= 3) {
+      currentCursorColor = desired;
+      cursorPath.setAttribute("fill", currentCursorColor);
+      colorState.textContent = currentCursorColor === WHITE ? "white" : "black";
+      pendingColorCount = 0;
+    }
   }
 
   /* ═════════ Affine calibration ═════════ */
@@ -766,9 +773,7 @@ setInterval(function () {
       }
     }
   } catch (_) {}
-  const saveCal = () => {
-    try { localStorage.setItem(CAL_KEY, JSON.stringify({ raw: cal.raw, scr: cal.scr })); } catch (_) {}
-  };
+  const saveCal = () => { try { localStorage.setItem(CAL_KEY, JSON.stringify({ raw: cal.raw, scr: cal.scr })); } catch (_) {} };
 
   /* ═════════ Shared state ═════════ */
   let latestHands = [];
@@ -777,7 +782,7 @@ setInterval(function () {
   let lastRawHandTime = 0;
 
   const target = { x: innerWidth / 2, y: innerHeight / 2, vx: 0, vy: 0, lastT: performance.now() };
-  const cursor = { x: innerWidth / 2, y: innerHeight / 2 };
+  const cursor = { x: innerWidth / 2, y: innerHeight / 2, lastColorSample: 0 };
 
   const clickPinch = { active: false, confirm: 0, release: 0,
                        startTime: 0, cooldownUntil: 0, holdTimer: null };
@@ -835,7 +840,6 @@ setInterval(function () {
     const s = window.getSelection(); s.removeAllRanges();
     const rr = document.createRange();
     try { rr.setStart(r.startContainer, r.startOffset); rr.collapse(true); s.addRange(rr); } catch (_) {}
-    cursorEl.classList.add("selecting");
     setAction("Selecting");
     return true;
   }
@@ -847,21 +851,18 @@ setInterval(function () {
       rr.setStart(sel.anchorNode, sel.anchorOffset);
       rr.setEnd(r.startContainer, r.startOffset);
     } catch (_) {
-      try {
-        rr.setStart(r.startContainer, r.startOffset);
-        rr.setEnd(sel.anchorNode, sel.anchorOffset);
-      } catch (_) { return; }
+      try { rr.setStart(r.startContainer, r.startOffset);
+            rr.setEnd(sel.anchorNode, sel.anchorOffset); } catch (_) { return; }
     }
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(rr);
   }
   function endSelection() {
     sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0;
-    cursorEl.classList.remove("selecting"); setAction("Move");
+    setAction("Move");
   }
   function clearSelection() {
     const s = window.getSelection(); if (s) s.removeAllRanges();
     sel.active = false; sel.anchorNode = null; sel.anchorOffset = 0;
-    cursorEl.classList.remove("selecting");
   }
 
   /* ═════════ Click / drag ═════════ */
@@ -934,8 +935,7 @@ setInterval(function () {
     const s = document.scrollingElement || document.documentElement;
     a = clamp(a, -T.scrollMax, T.scrollMax);
     if (Math.abs(a) < 0.5) return;
-    s.scrollTop += a;
-    scrollState.velocity = a;
+    s.scrollTop += a; scrollState.velocity = a;
   }
   function updateScroll(lm) {
     if (!isScrollGesture(lm)) { onScrollEnd(); return; }
@@ -1067,14 +1067,24 @@ setInterval(function () {
       const f = clamp(T.lerpMin + d * T.lerpSpeed, T.lerpMin, 1);
       cursor.x += dx * f; cursor.y += dy * f;
     }
+
+    /* Place the SVG so its tip lands exactly on (cursor.x, cursor.y) */
     cursorEl.style.transform =
-      `translate3d(${(cursor.x - 10).toFixed(2)}px, ${(cursor.y - 10).toFixed(2)}px, 0)`;
+      `translate3d(${(cursor.x - TIP_OFF_X).toFixed(2)}px, ${(cursor.y - TIP_OFF_Y).toFixed(2)}px, 0)`;
     cursorEl.classList.toggle("visible", latestHands.length > 0 || cal.active);
+
+    /* Sample background colour every ~5 frames */
+    if (now - cursor.lastColorSample > 80) {
+      cursor.lastColorSample = now;
+      updateCursorColor();
+    }
+
     frames++;
     if (now - lastFpsT >= 1000) {
       fpsState.textContent = frames + " fps";
       frames = 0; lastFpsT = now;
     }
+
     if (hasFreshHand) { hasFreshHand = false; processGestures(); }
     else if (latestHands.length === 0) {
       onScrollEnd();
@@ -1146,12 +1156,8 @@ setInterval(function () {
   calCancel.addEventListener("click", () => { cal.raw = []; cal.scr = []; calFinish(); });
 
   /* ═════════ Worker boot ═════════ */
-  let worker = null;
-  let workerReady = false;
-  let workerFailed = false;
-  let workerFirstResultAt = 0;
-  let fallbackStarted = false;
-  let frameBusy = false;
+  let worker = null, workerReady = false, workerFailed = false;
+  let workerFirstResultAt = 0, fallbackStarted = false, frameBusy = false;
 
   function postDiagToPanel(stats) {
     pipelineState.textContent =
@@ -1167,8 +1173,7 @@ setInterval(function () {
       worker = new Worker(url);
 
       worker.onmessage = (e) => {
-        const msg = e.data;
-        if (!msg) return;
+        const msg = e.data; if (!msg) return;
         if (msg.type === "ready") {
           workerReady = true;
           workerState.textContent = "worker ✓";
@@ -1197,31 +1202,22 @@ setInterval(function () {
         startMainThreadFallback();
       };
 
-      /* If worker hasn't reported ready in 6 s → fallback */
       setTimeout(() => {
         if (!workerReady && !workerFailed) {
-          console.warn("Worker timeout — falling back");
           try { worker.terminate(); } catch (_) {}
           workerFailed = true;
           workerState.textContent = "timeout";
           startMainThreadFallback();
         }
       }, 6000);
-
-      /* If worker is ready but NEVER produces a result with hands in 4 s
-         (still sending frames), assume the worker path is broken and fall back. */
       setTimeout(() => {
-        if (workerReady && !workerFailed && !fallbackStarted) {
-          const noResults = workerFirstResultAt === 0;
-          if (noResults) {
-            console.warn("Worker ready but no results after 4s — falling back");
-            try { worker.terminate(); } catch (_) {}
-            workerFailed = true;
-            workerState.textContent = "no results";
-            startMainThreadFallback();
-          }
+        if (workerReady && !workerFailed && !fallbackStarted && workerFirstResultAt === 0) {
+          try { worker.terminate(); } catch (_) {}
+          workerFailed = true;
+          workerState.textContent = "no results";
+          startMainThreadFallback();
         }
-      }, 6000);
+      }, 8000);
     } catch (err) {
       console.error("Worker creation failed:", err);
       workerFailed = true;
@@ -1240,7 +1236,6 @@ setInterval(function () {
     } catch (_) {}
     frameBusy = false;
   }
-
   function startFrameLoop() {
     if (video.requestVideoFrameCallback) {
       const cb = () => { sendFrame(); video.requestVideoFrameCallback(cb); };
@@ -1261,30 +1256,21 @@ setInterval(function () {
     fallbackStarted = true;
     workerState.textContent = "main thread";
     pillText.textContent = "Fallback: main thread";
-    console.warn("Running MediaPipe on main thread");
 
     if (typeof Hands === "function") { initMainThreadHands(); return; }
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js";
     s.crossOrigin = "anonymous";
     s.onload = initMainThreadHands;
-    s.onerror = () => {
-      workerState.textContent = "mp load failed";
-      pillText.textContent = "MediaPipe failed to load";
-    };
+    s.onerror = () => { workerState.textContent = "mp load failed"; };
     document.head.appendChild(s);
   }
   function initMainThreadHands() {
     const hands = new Hands({
       locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
     });
-    hands.setOptions({
-      maxNumHands: 2,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-      selfieMode: true,
-    });
+    hands.setOptions({ maxNumHands: 2, modelComplexity: 1,
+      minDetectionConfidence: 0.5, minTrackingConfidence: 0.5, selfieMode: true });
     hands.onResults((results) => {
       latestHands = (results && results.multiHandLandmarks) || [];
       hasFreshHand = true;
@@ -1292,11 +1278,9 @@ setInterval(function () {
       handState.textContent = latestHands.length > 0 ? "tracking" : "absent";
       pipelineState.textContent = latestHands.length ? "main ✓" : "main —";
     });
-
     let busy = false;
     async function pump() {
-      if (busy) return;
-      if (video.readyState < 2 || !video.videoWidth) return;
+      if (busy || video.readyState < 2 || !video.videoWidth) return;
       busy = true;
       try { await hands.send({ image: video }); } catch (_) {}
       busy = false;
@@ -1331,8 +1315,7 @@ setInterval(function () {
         row.innerHTML = `<label>${d.l}</label><select id="t_${key}">
           ${d.options.map(([v, l]) =>
             `<option value="${v}" ${T[key] === v ? "selected" : ""}>${l}</option>`
-          ).join("")}
-        </select>`;
+          ).join("")}</select>`;
         paneTuners.appendChild(row);
         const s = row.querySelector("select");
         s.addEventListener("change", () => { T[key] = s.value; saveCfg(); refreshJson(); });
@@ -1361,7 +1344,7 @@ setInterval(function () {
 
   function getJSON() {
     return JSON.stringify({
-      app: "dex-hand-cursor", version: 9,
+      app: "dex-hand-cursor", version: 10,
       savedAt: new Date().toISOString(),
       config: { ...T },
       calibration: cal.raw.length === 4 ? { raw: cal.raw, scr: cal.scr } : null,
@@ -1423,8 +1406,7 @@ setInterval(function () {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 960 }, height: { ideal: 540 },
-          frameRate: { ideal: 60, min: 24 },
-          facingMode: "user",
+          frameRate: { ideal: 60, min: 24 }, facingMode: "user",
         },
         audio: false,
       });
@@ -1451,13 +1433,8 @@ setInterval(function () {
     else calState.textContent = "saved";
   }, 1600);
 
-  /* ═════════ Keyboard ═════════ */
   addEventListener("keydown", (e) => {
     if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey && !cal.active) calStart();
-    if (e.key.toLowerCase() === "d") {
-      /* Toggle diagnostics — dumps worker stats */
-      try { worker && worker.postMessage({ type: "diag" }); } catch (_) {}
-    }
   });
   addEventListener("resize", () => { if (cal.active) renderCalStep(); });
 
